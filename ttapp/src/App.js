@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './button.css';
-import claimItems from './components/Fields/claim';
-import newPolicyItems from './components/Fields/newpolicy';
+import invoiceItems from './components/Fields/invoice';
+import policyItems from './components/Fields/policy';
 import RegistrationDialog from './components/RegistrationDialog';
 import NavBar from './components/NavBar';
 import Form from './components/Form';
@@ -9,6 +9,7 @@ import Paper from '@material-ui/core/Paper';
 import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import TabPanel from './components/TabPanel';
+import WelcomeDialog from './components/Welcome';
 
 import GlobalCss from './components/Global';
 
@@ -19,18 +20,18 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import axios from 'axios';
 import QRcode from 'qrcode.react';
 import crypto from 'crypto';
-import acmeRoutes from './routes/acme';
+import hospitalRoutes from './routes/hospital';
 import signInRoutes from './routes/signInRoutes';
 
-axios.defaults.baseURL = 'https://localhost:3002/';
+axios.defaults.baseURL = 'http://localhost:5002/';
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
 axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
 
-const policyID = Math.floor(10000000 + Math.random() * 90000000);
+const r = Math.random().toString(26).substring(2, 4).toUpperCase();
+const invoiceNumber = r + Math.floor(1000 + Math.random() * 9000).toString();
 
 const muiTheme = createMuiTheme({
     typography: {
-        // "fontFamily": `"Roboto", "Helvetica", "Arial", sans-serif`,
         "fontFamily": `"Lato","Arial","Helvetica","FreeSans","sans-serif"`,
         "fontSize": 14,
         "fontWeightLight": 300,
@@ -38,22 +39,17 @@ const muiTheme = createMuiTheme({
         "fontWeightMedium": 500
     }
 });
+
 const initState = {
     policy: {
         policyID: "",
         effectiveDate: "",
         expiryDate: "",
-        insuranceCompany: "Acme",
-        smoker: "",
-        drinker: "",
-        age: "",
-        illnesses: "",
-        active: "",
-        socialSecurityNumber: ""
+        insuranceCompany: "",
     },
-    claim: {
-        invoiceNumber: "",
-        hospitalName: "",
+    invoice: {
+        invoiceNumber: invoiceNumber,
+        hospitalName: "St Elsewhere Hospital, Gotham City",
         invoiceDate: "",
         insurancePolicyNumber: "",
         invoiceAmount: "",
@@ -74,7 +70,8 @@ const initState = {
         verification_accepted: true,
         has_been_revoked: true,
         loading: false,
-        hospital_certificate_received: false
+        insurance_policy_received: true,
+        claim_button_disabled: true
     },
 
     register: false,
@@ -104,57 +101,54 @@ export class App extends Component {
         });
     }
 
-    onIssue = async () => {
-        const effectiveDate = this.formatDate(new Date(), 0);
-        const expiryDate = this.formatDate(new Date(), 1);
-        const policyDetails = {
-            policyID: policyID.toString(),
-            effectiveDate: effectiveDate,
-            expiryDate: expiryDate,
-            insuranceCompany: this.state.policy.insuranceCompany
+    onIssueInvoice = async () => {
+        const invoiceDetails = {
+            invoiceNumber: invoiceNumber,
+            hospitalName: this.state.invoice.hospitalName,
+            invoiceDate: this.state.invoice.invoiceDate,
+            insurancePolicyNumber: this.state.invoice.insurancePolicyNumber,
+            amount: this.state.invoice.invoiceAmount + ".00",
+            treatmentDescription: this.state.invoice.treatmentDescription
         }
 
         this.setState(prevState => ({
             acme: { ...prevState.acme, credential_accepted: false }
         }));
-        await acmeRoutes.issue(policyDetails);
+
+        await hospitalRoutes.issue(invoiceDetails);
+
         this.setState(prevState => ({
             acme: { ...prevState.acme, credential_accepted: true, has_been_revoked: false },
-            policy: { ...prevState.policy, policyID: policyID },
-            // claim: { ...prevState.policy, policyID: policyID, customerName: this.state.connection_name }
+            invoice: { ...prevState.invoice, invoiceNumber: invoiceNumber }
         }));
     }
 
-    onRequestCertificate = async () => {
-        // fire a proof request for the hospital certificate
-
+    onRequestInsurancePolicy = async () => {
         this.setState(prevState => ({
-            acme: { ...prevState.acme, verification_accepted: false },
+            acme: { ...prevState.acme, insurance_policy_received: false },
         }));
-
         let resp;
         try {
-            console.log("VERIFY INVOICE....");
-            resp = await acmeRoutes.verifyInvoice();
-            console.log("ok! resp = ", resp);
+            resp = await hospitalRoutes.verifyInsurance();
         }
         catch (e) {
             console.log(e);
-            return;
         }
-
         this.setState(prevState => ({
-            acme: { ...prevState.acme, hospital_certificate_received: true, verification_accepted: true, claim_button_disabled: false },
-            claim: {...prevState.claim, 
-                invoiceNumber: resp.data.invoiceNumber,
-                hospitalName: resp.data.hospitalName,
-                invoiceDate: resp.data.invoiceDate,
-                insurancePolicyNumber: resp.data.insurancePolicyNumber,
-                invoiceAmount: resp.data.invoiceAmount,
-                treatmentDescription: resp.data.treatmentDescription
+            acme: { ...prevState.acme, insurance_policy_received: true, claim_button_disabled: false },
+            policy: {
+                ...prevState.policy,
+                policyID: resp.data.policyID,
+                effectiveDate: resp.data.effectiveDate,
+                expiryDate: resp.data.expiryDate,
+                insuranceCompany: resp.data.insuranceCompany,
+            },
+            invoice: {
+                ...prevState.invoice,
+                insurancePolicyNumber: resp.data.policyID,
             }
         }));
-        console.log("ok! resp = ", resp);
+        console.log("LOGIN ok! resp = ", resp);
     }
 
     setPolicyFieldValue = (event) => {
@@ -167,6 +161,15 @@ export class App extends Component {
         }));
     }
 
+    setInvoiceFieldValue = (event) => {
+        const { target: { name, value } } = event;
+
+        this.setState(prevState => ({
+            invoice: {
+                ...prevState.invoice, [name]: value
+            }
+        }));
+    }
 
     loadacmeCredentials = (credentials) => {
         const acmeValues = credentials.filter(function (credential) {
@@ -246,7 +249,7 @@ export class App extends Component {
             const name = login.data.connectionContract.name;
 
             this.setState({
-                login: true, connection_name: name, register: true, loggingIn: false, welcome_open: false
+                login: true, connection_name: name, register: true, loggingIn: false
             });
             sessionStorage.setItem("name", name);
             sessionStorage.setItem("login", true);
@@ -277,7 +280,9 @@ export class App extends Component {
         const response = await signInRoutes.register(registrationInfo);
         console.log(response);
 
-        this.setState({ invite_url: "https://web.cloud.streetcred.id/link/?c_i=" + response.data.invite_url });
+        // this.setState({ invite_url: "https://web.cloud.streetcred.id/link/?c_i=" + response.data.invite_url });
+
+        this.setState({ invite_url: response.data.invite_url });
 
         const resp = await signInRoutes.waitForConnection();
 
@@ -331,7 +336,7 @@ export class App extends Component {
 
     acmeGetUserData = async () => {
         console.log("Waiting for the feedback to arrive...");
-        const user = await acmeRoutes.getFeedback();
+        const user = await hospitalRoutes.getFeedback();
 
         console.log("User Data = ", user.data);
 
@@ -362,57 +367,44 @@ export class App extends Component {
         this.setState({ value: 0 });
     }
 
-    getInitialAcceptedLabel() {
-        return (this.state.acme.credential_accepted ? "Create Policy" : "Awaiting Acceptance...");
+    getCancelInvoiceLabel(platform) {
+        return (this.state.acme.credential_accepted ? "Cancel Invoice" : "Awaiting Acceptance...");
     }
 
-    getAcceptedLabelRevoke(platform) {
-        return (this.state[platform].credential_accepted ? "Cancel Policy" : "Awaiting Acceptance...");
+    getPolicyLabel() {
+        return (this.state.acme.insurance_policy_received ? "Request Insurance Policy" : "Awaiting Proof...");
     }
 
-    getCertificateLabel() {
-        return (this.state.acme.verification_accepted ? "Request Hospital Invoice" : "Awaiting Proof...");
-    }
-
-    getAcceptedLabelIssue(platform) {
-        return (this.state[platform].credential_accepted ? "Issue Credential" : "Awaiting Acceptance...");
-    }
-
-    getReimburseLabel() {
-        return "Submit Claim";
+    getInvoiceLabel() {
+        return (this.state.acme.credential_accepted ? "Issue Invoice Credential" : "Awaiting Acceptance...");
     }
 
     getDisabled(platform) {
-        return (!this.state[platform].credential_accepted || !this.state[platform].verification_accepted);
+        return (!this.state[platform].credential_accepted || !(this.state.acme.insurance_policy_received));
     }
 
-    getVerifyDisabled(platform) {
-        return (this.state[platform].has_been_revoked || !(this.state[platform].verification_accepted));
+    getClaimDisabled(platform) {
+        return (!this.state[platform].credential_accepted || !(this.state.acme.insurance_policy_received) || (this.state.acme.claim_button_disabled));
     }
 
-
-    issuePolicyButton() {
-        if (!this.state.acme.has_been_revoked) {
-            return (<Button className="revokebutton" disabled={this.getDisabled("acme")}
-                onClick={() => this.onacmeRevoke()}>
-                {this.getAcceptedLabelRevoke("acme")}
-            </Button>)
-        } else {
-            return (<Button className="registerbutton" disabled={this.getDisabled("acme")}
-                onClick={() => this.onIssue()} >
-                {this.getAcceptedLabelIssue("acme")}
-            </Button>)
-        }
-
+    requestPolicyButton() {
+        return (
+            <div style={{ marginTop: '50px', }}>
+                <Button className="registerbutton" disabled={this.getDisabled("acme")}
+                    onClick={() => this.onRequestInsurancePolicy()} >
+                    {this.getPolicyLabel("acme")}
+                </Button>
+            </div>
+        )
     }
 
-    claimButton() {
-        if (!this.state.acme.hospital_certificate_received) {
+    invoiceButton() {
+        if (this.state.acme.has_been_revoked) {
             return (
                 <div style={{ marginTop: '45px', marginBottom: '20px' }}>
-                    <Button className="registerbutton" disabled={this.getDisabled("acme")}
-                        onClick={() => this.onRequestCertificate()} >
-                        {this.getCertificateLabel()}
+                    <Button className="registerbutton" disabled={this.getClaimDisabled("acme")}
+                        onClick={() => this.onIssueInvoice()} >
+                        {this.getInvoiceLabel()}
                     </Button>
                 </div>
             )
@@ -421,7 +413,7 @@ export class App extends Component {
                 <div style={{ marginTop: '45px', marginBottom: '20px' }}>
                     <Button className="revokebutton" disabled={this.getDisabled("acme")}
                         onClick={() => this.onReimburse()} >
-                        {this.getReimburseLabel()}
+                        {this.getCancelInvoiceLabel()}
                     </Button>
                 </div>
             )
@@ -429,7 +421,7 @@ export class App extends Component {
     }
 
     getQRCodeLabel() {
-        return this.state.registering ? "Scan this QR code to Register with Acme Insurance" : "Scan this QR code to Login"
+        return this.state.registering ? "Scan this QR code to Register with St.Elsewhere Hospital" : "Scan this QR code to Login"
     }
 
     handleLoginClose() {
@@ -486,6 +478,10 @@ export class App extends Component {
         } else {
             console.log("No selected tab");
         }
+        const invoiceDate = this.formatDate(new Date(), 0);
+        this.setState(prevState => ({
+            invoice: { ...prevState.invoice, invoiceDate: invoiceDate }
+        }));
     }
 
     handleChange = (event, newValue) => {
@@ -493,7 +489,6 @@ export class App extends Component {
     };
 
     render() {
-
 
         let web = sessionStorage.getItem("waitingForacmeUserData");
         if (web === "true") {
@@ -513,24 +508,8 @@ export class App extends Component {
             return this.state.welcome_open ? 'none' : 'block';
         }
 
-        const getWelcomeDisplay = () => {
-            return this.state.welcome_open ? 'block' : 'none';
-        }
-
-        const getWaitingDisplay = () => {
-            return this.state.acme.credential_accepted ? 'none' : 'block';
-        }
-
         // const getTabDisplay = () => {
         //     return this.state.welcome_open ? 'block' : 'none';
-        // }
-
-        // const getWelcomeDisplay = () => {
-        //     return this.state.welcome_open ? 'none' : 'block';
-        // }
-
-        // const getWaitingDisplay = () => {
-        //     return this.state.acme.credential_accepted ? 'block' : 'none';
         // }
 
         return (
@@ -541,7 +520,7 @@ export class App extends Component {
 
                     <Paper style={{
                         height: '800px',
-                        backgroundImage: `url(${"insurance7.jpg"})`,
+                        backgroundImage: `url(${"hospital.jpg"})`,
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center center",
                         backgroundSize: "cover",
@@ -549,49 +528,41 @@ export class App extends Component {
                         backgroundColor: 'rgba(255, 255, 255, 0.5)',
                         flexGrow: 1
                     }}>
-                        <div style={{ display: getWelcomeDisplay() }} className="welcomepanel">
-                            <div style={{ borderBottom: '1px solid white' }}>
-                                <p>Welcome to Acme Insurance</p>
-                            </div>
-                            <div style={{ marginTop: '35px' }}>
-                                <p> Click on Register to create a new user account, or Login to sign in with an existing account.
-                                    
-                                </p>
-                                <div style={{ display: getWaitingDisplay() }} className = "bottomright">
-                                    Awaiting User Registration Credential Acceptance...
-                                </div>
-                            </div>
-                        </div>
+                        <WelcomeDialog
+                            welcome_open={this.state.welcome_open}
+                            credential_accepted={this.state.acme.credential_accepted}
+                        >
+                        </WelcomeDialog>
                         <div style={{ display: getTabDisplay() }}>
                             <Tabs
                                 value={this.state.value}
                                 onChange={this.handleChange}
-                                TabIndicatorProps={{style: {background:'#3366ff'}}}
+
                                 initialSelectedIndex="1"
                                 centered
                             >
 
-                                <Tab label="New Policy" {...a11yProps(0)} />
-                                <Tab label="Enter Claim" {...a11yProps(1) } />
+                                <Tab label="Request Insurance Policy" {...a11yProps(0)} />
+                                <Tab label="Raise Invoice" {...a11yProps(1)} />
                             </Tabs>
                             <TabPanel value={this.state.value} index={0}>
                                 <Form
                                     parent={this}
-                                    items={newPolicyItems}
+                                    items={policyItems}
                                     loading={this.state.acme.loading}
                                     card={this.state.policy}
-                                    title={"Create New Insurance Policy"}
+                                    title={"Request Insurance Policy"}
                                     action={"policy"}>
                                 </Form>
                             </TabPanel>
                             <TabPanel value={this.state.value} index={1}>
                                 <Form
                                     parent={this}
-                                    items={claimItems}
+                                    items={invoiceItems}
                                     loading={this.state.acme.loading}
-                                    card={this.state.claim}
-                                    title={"Claim Details"}
-                                    action={"claim"}>
+                                    card={this.state.invoice}
+                                    title={"Raise Patient Invoice"}
+                                    action={"invoice"}>
                                 </Form>
                             </TabPanel>
 
