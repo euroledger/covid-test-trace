@@ -2,17 +2,17 @@ import axios from 'axios';
 
 const acmeRoutes = {
     async issue(policyDetails) {
-        await axios.post('/api/acme/issue', policyDetails);
+        await axios.post('/api/hospital/issue', policyDetails);
         console.log("WAITING FOR CREDENIAL ACCEPTANCE...")
         await axios.post('/api/credential_accepted', null);
+
         console.log("READY!");
     },
     async revoke() {
-        await axios.post('/api/acme/revoke', null);
+        await axios.post('/api/hospital/revoke', null);
     },
-
-    async verifyInvoice() {
-        await axios.post('/api/verifyinvoice', null);
+    async verifyInsurance() {
+        await axios.post('/api/verifypolicy', null);
 
         return await axios.get('/api/verificationreceived');
     }

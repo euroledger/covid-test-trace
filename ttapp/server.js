@@ -388,7 +388,7 @@ const getInvite = async (id) => {
  * Listen on provided port, on all network interfaces.
  */
 
-const port = normalizePort('5002');
+const port = normalizePort('3002');
 app.set('port', port);
 
 const server = http.createServer(app);

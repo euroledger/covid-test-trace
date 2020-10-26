@@ -1,4 +1,4 @@
-const claimItems = [
+const invoiceItems = [
     {
         id: "invoiceNumber",
         label: "Invoice Number",
@@ -31,4 +31,4 @@ const claimItems = [
     },
 ];
 
-export default claimItems;
+export default invoiceItems;

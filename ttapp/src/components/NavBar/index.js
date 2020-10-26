@@ -16,10 +16,10 @@ const NavBar = ({ parent }) => {
 
     return (
         <AppBar position="static">
-            <Toolbar style={{ backgroundColor: '#336699' }}>
-                <img style = {{maxHeight: '40px', paddingRight: '30px'}} src="acme2.png" alt="logo" />
+            <Toolbar style={{ backgroundColor: '#800000' }}>
+                <img style = {{maxHeight: '40px', paddingRight: '30px'}} src="stelsewhere.png" alt="logo" />
                 <Typography variant="h6">
-                    Acme Insurance Demo
+                    St Elsewhere Hospital Demo
                         </Typography>
                 <div style={{ flexGrow: 1 }}></div>
                 <Button style={{ color: 'white' }} onClick={() => parent.registerFormOpen(true)}>

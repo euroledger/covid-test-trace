@@ -7,20 +7,20 @@ import Spinner from '../Spinner';
 const Form = ({ parent, items, loading, card, title, action }) => {
     const getButton = () => {
         if (action === "policy") {
-            return parent.issuePolicyButton();
-        } else if (action === "claim") {
-            return parent.claimButton();
+            return parent.requestPolicyButton();
+        } else if (action === "invoice") {
+            return parent.invoiceButton();
         } 
     }
 
     const getLogo = () => {
         if (action === "policy") {
             return (
-                <img style={{ marginLeft: '127px', height: '99px', width: '143px', marginBottom:'24px' }} src='wellness.jpg' alt=""/>
+                <img style={{ marginLeft: '177px', height: '99px', width: '143px', marginBottom:'24px' }} src='policy.jpg' alt=""/>
             )
-        } else if (action === "claim") {
+        } else if (action === "invoice") {
             return (
-                <img style={{ marginLeft: '288px', height: '90px', width: '155px' }} src='claim.jpg' alt=""/>
+                <img style={{ marginLeft: '194px', height: '98px', width: '165px' }} src='nurse.jpg' alt=""/>
             )
         } 
     }
@@ -28,7 +28,7 @@ const Form = ({ parent, items, loading, card, title, action }) => {
     const getDivStyle = () => {
         if (action === "policy") {
             return ({ display: 'flex', marginBottom: '-65px' })
-        } else if (action === "claim") {
+        } else if (action === "invoice") {
             return ({ display: 'flex', marginBottom: '-3px' })
         }
     }
@@ -36,8 +36,8 @@ const Form = ({ parent, items, loading, card, title, action }) => {
     const setFieldValue = (event) => {
         if (action === "policy") {
             parent.setPolicyFieldValue(event);
-        } else if (action === "claim") {
-            parent.setClaimFieldValue(event);
+        } else if (action === "invoice") {
+            parent.setInvoiceFieldValue(event);
         } 
     }
 

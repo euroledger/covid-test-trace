@@ -23,7 +23,7 @@ import crypto from 'crypto';
 import hospitalRoutes from './routes/hospital';
 import signInRoutes from './routes/signInRoutes';
 
-axios.defaults.baseURL = 'http://localhost:5002/';
+axios.defaults.baseURL = 'http://localhost:3002/';
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
 axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
 
@@ -136,15 +136,13 @@ export class App extends Component {
         }
         this.setState(prevState => ({
             acme: { ...prevState.acme, insurance_policy_received: true, claim_button_disabled: false },
-            policy: {
-                ...prevState.policy,
+            policy: {...prevState.policy, 
                 policyID: resp.data.policyID,
                 effectiveDate: resp.data.effectiveDate,
                 expiryDate: resp.data.expiryDate,
                 insuranceCompany: resp.data.insuranceCompany,
-            },
-            invoice: {
-                ...prevState.invoice,
+            }, 
+            invoice: {...prevState.invoice, 
                 insurancePolicyNumber: resp.data.policyID,
             }
         }));
@@ -537,7 +535,7 @@ export class App extends Component {
                             <Tabs
                                 value={this.state.value}
                                 onChange={this.handleChange}
-
+                                
                                 initialSelectedIndex="1"
                                 centered
                             >
