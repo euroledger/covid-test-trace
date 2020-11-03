@@ -7,19 +7,20 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import Button from '@material-ui/core/Button';
 
-const RegistrationDialog = ({ form_open, parent, registerFormOpen, setQRFormOpen, postRegister }) => {
+const RestaurantRegistrationDialog = ({ form_open, parent }) => {
     let initialFormState =
     {
-        firstname: '',
-        lastname: '',
-        email: '',
-        country: ''
+        restaurantname: '',
+        restauranttelnumber: '',
+        restaurantemail: '',
+        restaurantlocation: '',
+        restaurantpassword: ''
     };
 
     const [form, setFormState] = React.useState(initialFormState);
 
     const handleRegisterClose = () => {
-        parent.registerFormOpen(false);
+        parent.registerRestaurantFormOpen(false);
     }
 
     const setFieldValue = (event) => {
@@ -29,47 +30,55 @@ const RegistrationDialog = ({ form_open, parent, registerFormOpen, setQRFormOpen
 
     const handleFormSubmit = (event) => {
         event.preventDefault();
-        parent.setQRFormOpen(true);
-        parent.postRegister(form);
+        parent.postRestaurantRegister(form);
     }
-    
+
     return (
         <Dialog open={form_open} onClose={() => handleRegisterClose()} aria-labelledby="form-dialog-title">
-            <DialogTitle id="form-dialog-title">Register</DialogTitle>
+            <DialogTitle id="form-dialog-title">Register Restaurant</DialogTitle>
             <DialogContent>
                 <DialogContentText>
-                    To register to this website, please enter your name, email address and location here.
+                    To register a restaurant to this website, please enter restaurant name, email address and location here.
                                 </DialogContentText>
                 <form noValidate autoComplete="off" onSubmit={(e) => handleFormSubmit(e)}>
                     <TextField
                         margin="dense"
-                        name="firstname"
-                        label="First Name"
-                        value={form.firstname}
+                        name="restaurantname"
+                        label="Restaurant Name"
+                        value={form.restaurantname}
                         onChange={setFieldValue}
                         fullWidth
                     />
                     <TextField
                         margin="dense"
-                        name="lastname"
-                        label="Last Name"
-                        value={form.lastname}
+                        name="restauranttelnumber"
+                        label="Restaurant Telephone Number"
+                        value={form.restaurantcontact}
                         onChange={setFieldValue}
                         fullWidth
                     />
                     <TextField
                         margin="dense"
-                        name="email"
-                        label="Email Address"
-                        value={form.email}
+                        name="restaurantemail"
+                        label="Restaurant Email Address"
+                        value={form.restaruantemail}
                         onChange={setFieldValue}
                         fullWidth
                     />
                     <TextField
                         margin="dense"
-                        name="country"
-                        label="Country"
-                        value={form.country}
+                        name="restaurantlocation"
+                        label="Restaurant Location"
+                        value={form.restaurantlocation}
+                        onChange={setFieldValue}
+                        fullWidth
+                    />
+                     <TextField
+                        margin="dense"
+                        name="restaurantpassword"
+                        label="Password"
+                        type="password"
+                        value={form.restaurantpassword}
                         onChange={setFieldValue}
                         fullWidth
                     />
@@ -86,4 +95,4 @@ const RegistrationDialog = ({ form_open, parent, registerFormOpen, setQRFormOpen
         </Dialog>
     );
 }
-export default RegistrationDialog
+export default RestaurantRegistrationDialog

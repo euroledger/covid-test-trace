@@ -2,7 +2,8 @@ import React, { Component } from 'react';
 import './button.css';
 import invoiceItems from './components/Fields/invoice';
 import policyItems from './components/Fields/policy';
-import RegistrationDialog from './components/RegistrationDialog';
+import RestaurantRegistrationDialog from './components/RestaurantRegistrationDialog';
+import NHSRegistrationDialog from './components/NHSRegistrationDialog';
 import NavBar from './components/NavBar';
 import Form from './components/Form';
 import Paper from '@material-ui/core/Paper';
@@ -20,7 +21,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import axios from 'axios';
 import QRcode from 'qrcode.react';
 import crypto from 'crypto';
-import hospitalRoutes from './routes/hospital';
+import traceRoutes from './routes/hospital';
 import signInRoutes from './routes/signInRoutes';
 
 axios.defaults.baseURL = 'http://localhost:3002/';
@@ -28,7 +29,10 @@ axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
 axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
 
 const r = Math.random().toString(26).substring(2, 4).toUpperCase();
+
 const invoiceNumber = r + Math.floor(1000 + Math.random() * 9000).toString();
+
+const JSON_SERVER_URL = 'http://localhost:3004';
 
 const muiTheme = createMuiTheme({
     typography: {
@@ -62,7 +66,8 @@ const initState = {
     qr_placeholder: "",
     invite_url: "",
     login_url: "",
-    registering: false,
+    registering_restaurant: false,
+    registering_nhs_user: false,
     loggingIn: false,
     acme: {
         qr_feedbackCollected: false,
@@ -74,13 +79,27 @@ const initState = {
         claim_button_disabled: true
     },
 
-    register: false,
-    register_form_open: false,
+    register_restaurant: false,
+    register_nhs: false,
+    register_restaurant_form_open: false,
+    register_nhs_form_open: false,
     login: false,
     // login_form_open: false,
+    restaurantname: '',
+    restauranttelnumber: '',
+    restaurantlocation: '',
+    restaurantemail: '',
+    restaurantpassword: '',
+
+    nhsfirstname: '',
+    nhslastname: '',
+    nhslocation: '',
+    nhsemail: '',
+    nhspassword: '',
+
     firstname: '',
     lastname: '',
-    email: '',
+    nhsid: '',
     connection_name: sessionStorage.getItem("name"),
     country: '',
     collapse_open: false,
@@ -115,7 +134,7 @@ export class App extends Component {
             acme: { ...prevState.acme, credential_accepted: false }
         }));
 
-        await hospitalRoutes.issue(invoiceDetails);
+        await traceRoutes.issue(invoiceDetails);
 
         this.setState(prevState => ({
             acme: { ...prevState.acme, credential_accepted: true, has_been_revoked: false },
@@ -129,7 +148,7 @@ export class App extends Component {
         }));
         let resp;
         try {
-            resp = await hospitalRoutes.verifyInsurance();
+            resp = await traceRoutes.verifyInsurance();
         }
         catch (e) {
             console.log(e);
@@ -262,58 +281,74 @@ export class App extends Component {
         }
     }
 
-    postRegister = async (form) => {
-        // const passcode = Math.floor(Math.random() * 900000) + 100000;
-
-        const passcode = crypto.randomBytes(20).toString('hex');
-
-        const registrationInfo = {
-            firstname: form.firstname,
-            lastname: form.lastname,
-            email: form.email,
-            country: form.country,
-            passcode: passcode
-        }
-        console.log(registrationInfo);
-        const response = await signInRoutes.register(registrationInfo);
-        console.log(response);
-
-        // this.setState({ invite_url: "https://web.cloud.streetcred.id/link/?c_i=" + response.data.invite_url });
-
-        this.setState({ invite_url: response.data.invite_url });
-
-        const resp = await signInRoutes.waitForConnection();
-
-        this.setState(prevState => ({
-            login: true,
-            connection_name: resp.data,
-            qr_open: false,
-            acme: { ...prevState.acme, credential_accepted: false },
-        }));
-        sessionStorage.setItem("name", this.state.connection_name);
-        sessionStorage.setItem("login", true);
-
-        await signInRoutes.waitForCredentialAccepted();
-
-        console.log("setting login to true");
-
-        this.setState(prevState => ({
-            qr_open: false,
-            login: true,
-            register: true,
-            registering: false,
-            welcome_open: false,
-            acme: { ...prevState.acme, credential_accepted: true },
-        }));
+    postRestaurantRegister = async (form) => {
+        // write restaurant registration data to json server
+        const json = JSON.stringify(form);
+        const res = traceRoutes.registerRestaurant(JSON_SERVER_URL, json);
     }
 
-    registerFormOpen = (open) => {
+    postNHSRegister = async (form) => {
+        // write NHS admin registration data to json server
+        const json = JSON.stringify(form);
+        const res = traceRoutes.registerNHSAdmin(JSON_SERVER_URL, json);
+    }
+
+    // postRegister = async (form) => {
+    //     // const passcode = Math.floor(Math.random() * 900000) + 100000;
+
+    //     const nhskey = crypto.randomBytes(20).toString('hex');
+
+    //     const registrationInfo = {
+    //         firstname: form.firstname,
+    //         lastname: form.lastname,
+    //         nhsid: form.nhsid,
+    //         nhskey: nhskey
+    //     }
+    //     console.log(registrationInfo);
+    //     const response = await signInRoutes.register(registrationInfo);
+    //     console.log(response);
+
+    //     // this.setState({ invite_url: "https://web.cloud.streetcred.id/link/?c_i=" + response.data.invite_url });
+
+    //     this.setState({ invite_url: response.data.invite_url });
+
+    //     const resp = await signInRoutes.waitForConnection();
+
+    //     this.setState(prevState => ({
+    //         login: true,
+    //         connection_name: resp.data,
+    //         qr_open: false,
+    //         acme: { ...prevState.acme, credential_accepted: false },
+    //     }));
+    //     sessionStorage.setItem("name", this.state.connection_name);
+    //     sessionStorage.setItem("login", true);
+
+    //     await signInRoutes.waitForCredentialAccepted();
+
+    //     console.log("setting login to true");
+
+    //     this.setState(prevState => ({
+    //         qr_open: false,
+    //         login: true,
+    //         register_nhs: true,
+    //         registering_nhs_user: false,
+    //         welcome_open: false,
+    //         acme: { ...prevState.acme, credential_accepted: true },
+    //     }));
+    // }
+
+    registerRestaurantFormOpen = (open) => {
         this.setState({
-            register_form_open: open,
-            registering: true
+            register_restaurant_form_open: open,
+            registering_restaurant: true
         });
     }
-
+    registerNHSFormOpen = (open) => {
+        this.setState({
+            register_nhs_form_open: open,
+            registering_nhs_user: true
+        });
+    }
     loginFormOpen = (open) => {
         this.setState({
             login_formi_open: open
@@ -334,7 +369,7 @@ export class App extends Component {
 
     acmeGetUserData = async () => {
         console.log("Waiting for the feedback to arrive...");
-        const user = await hospitalRoutes.getFeedback();
+        const user = await traceRoutes.getFeedback();
 
         console.log("User Data = ", user.data);
 
@@ -419,7 +454,7 @@ export class App extends Component {
     }
 
     getQRCodeLabel() {
-        return this.state.registering ? "Scan this QR code to Register with St.Elsewhere Hospital" : "Scan this QR code to Login"
+        return this.state.registering_restaurant ? "Scan this QR code to Register a Restaurant with EuroLedger Test & Trace" : this.state.registering_nhs_user ? "Scan this QR Code to register as an NHS Administrator with EuroLedger Test & Trace" : "Scan this QR code to Login to EuroLedger Test & Trace"
     }
 
     handleLoginClose() {
@@ -463,8 +498,12 @@ export class App extends Component {
         return this.state.login ? "Sign Out" : "Login"
     }
 
-    getRegisterLabel() {
-        return this.state.register ? this.state.connection_name : "Register"
+    getRegisterRestaurantLabel() {
+        return this.state.register_restaurant ? this.state.connection_name : "Register Restaurant"
+    }
+
+    getRegisterNHSLabel() {
+        return this.state.register_nhs ? this.state.connection_name : "Register NHS Admin"
     }
 
     componentDidMount() {
@@ -518,12 +557,12 @@ export class App extends Component {
 
                     <Paper style={{
                         height: '800px',
-                        backgroundImage: `url(${"hospital.jpg"})`,
+                        backgroundImage: `url(${"covid1.jpg"})`,
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center center",
                         backgroundSize: "cover",
                         backgroundAttachment: "fixed",
-                        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                        backgroundColor: 'rgba(10, 10, 10, 0.5)',
                         flexGrow: 1
                     }}>
                         <WelcomeDialog
@@ -567,10 +606,14 @@ export class App extends Component {
                         </div>
 
                     </Paper>
-                    <RegistrationDialog
-                        form_open={this.state.register_form_open}
+                    <RestaurantRegistrationDialog
+                        form_open={this.state.register_restaurant_form_open}
                         parent={this}>
-                    </RegistrationDialog>
+                    </RestaurantRegistrationDialog>
+                    <NHSRegistrationDialog
+                        form_open={this.state.register_nhs_form_open}
+                        parent={this}>
+                    </NHSRegistrationDialog>
                     <Dialog open={this.state.qr_open} onClose={() => this.setState({ qr_open: false, qr_hasClosed: true })}>
                         <DialogTitle style={{ width: "300px" }}>{this.getQRCodeLabel()}</DialogTitle>
                         <QRcode size="200" value={this.state.invite_url} style={{ margin: "0 auto", padding: "10px" }} />

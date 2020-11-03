@@ -1,0 +1,64 @@
+{
+  "restaurant": [
+    {
+      "restaurantName": "La Gavroche",
+      "restaurantTelephoneNumber": "020 7408 0881",
+      "restaurantLocation": "London",
+      "restaurantEmail": "bookatable.co.uk",
+      "password": "ChangeMe",
+      "id": 0
+    },
+    {
+      "restaurantName": "Three Bellends",
+      "restaurantTelephoneNumber": "020 7406 0551",
+      "restaurantLocation": "London",
+      "restaurantemail": "threebellends@email.com",
+      "password": "Hello",
+      "id": 1
+    },
+    {
+      "restaurantname": "Three Bellends",
+      "restauranttelnumber": "+32494639815",
+      "restaurantemail": "emerysolutions@yahoo.co.uk",
+      "restaurantlocation": "London",
+      "password": "123456",
+      "id": 2
+    },
+    {
+      "restaurantname": "Wagamama",
+      "restauranttelnumber": "0207 765 5436",
+      "restaurantemail": "wag23@email.com",
+      "restaurantlocation": "London, Blackfriars",
+      "restaurantpassword": "123789",
+      "id": 3
+    }
+  ],
+  "nhsadmin": [
+    {
+      "firstname": "Mike",
+      "lastname": "Richardson",
+      "medicalcentre": "St. Elsewhere",
+      "email": "mrich@stelsewhere.com",
+      "password": "654321",
+      "id": 0
+    },
+    {
+      "nhsfirstname": "Mike",
+      "nhslastname": "Richardson",
+      "nhslocation": "",
+      "nhsemail": "",
+      "nhspassword": "",
+      "nshlocation": "Luton General Hospital",
+      "nshemail": "emerysolutions@yahoo.co.uk",
+      "nshpassword": "123456",
+      "id": 1
+    }
+  ],
+  "customer": [
+    {
+      "id": 0,
+      "connectionId": "123456",
+      "nhsId": "7890123"
+    }
+  ]
+}

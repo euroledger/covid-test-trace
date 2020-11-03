@@ -79,18 +79,17 @@ app.post('/webhook', async function (req, res) {
             console.log("attribs from cache = ", attribs);
             var param_obj = JSON.parse(attribs);
 
-            
+
             var params =
             {
                 // credentialOfferParameters: {
-                    definitionId: process.env.CRED_DEF_ID_USER_DETAILS,
-                    connectionId: req.body.object_id,
-                    credentialValues: {
-                        'First Name': param_obj["firstname"],
-                        'Last Name': param_obj["lastname"],
-                        'Email Address': param_obj["email"],
-                        'Country': param_obj["country"],
-                        'St Elsewhere Access Token': param_obj["passcode"]
+                definitionId: process.env.CRED_DEF_ID_USER_DETAILS,
+                connectionId: req.body.object_id,
+                credentialValues: {
+                    'First Name': param_obj["firstname"],
+                    'Last Name': param_obj["lastname"],
+                    'NHS Patient ID': param_obj["nhsid"],
+                    'NHS Access Key': param_obj["nhskey"]
                     // }
                 }
             }
@@ -393,6 +392,17 @@ app.set('port', port);
 
 const server = http.createServer(app);
 
+// initialize the json server
+
+const jsonServer = require('json-server');
+
+// You may want to mount JSON Server on a specific end-point, for example /api
+// Optiona,l except if you want to have JSON Server defaults
+// server.use('/api', jsonServer.defaults()); 
+// app.use(jsonServer.bodyParser);
+app.use(jsonServer.router('db.json'));
+
+
 server.listen(port, async function () {
     const url_val = await ngrok.connect(port);
     console.log("============= \n\n" + url_val + "\n\n =========");
@@ -405,6 +415,9 @@ server.listen(port, async function () {
 });
 server.on('error', onError);
 server.on('listening', onListening);
+
+
+
 
 /**
  * Normalize a port into a number, string, or false.
@@ -465,40 +478,3 @@ function onListening() {
         : 'port ' + addr.port;
     debug('Listening on ' + bind);
 }
-
-
-// ---------------------------------------------------------------------------------------------
-// for graceful closing
-// var server = https.createServer(certOptions, app);
-// async function onSignal() {
-//     var webhookId = cache.get("webhookId");
-//     const p1 = await client.removeWebhook(webhookId);
-//     return Promise.all([p1]);
-// }
-// createTerminus(server, {
-//     signals: ['SIGINT', 'SIGTERM'],
-//     healthChecks: {},
-//     onSignal
-// });
-
-// const PORT = process.env.PORT || 3002;
-// var server = server.listen(PORT, async function () {
-
-//     try {
-//         const url_val = process.env.NGROK_URL + "/webhook";
-
-//         console.log("Using ngrok (webhook) url of ", url_val);
-//         var response = await client.createWebhook({
-//             webhookParameters: {
-//                 url: url_val,  // process.env.NGROK_URL
-//                 type: "Notification"
-//             }
-//         });
-//     }
-//     catch (e) {
-//         console.log(e);
-//     }
-
-//     cache.add("webhookId", response.id);
-//     console.log('Listening on port %d', server.address().port);
-// });
