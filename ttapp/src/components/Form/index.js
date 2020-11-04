@@ -8,27 +8,33 @@ const Form = ({ parent, items, loading, card, title, action }) => {
     const getButton = () => {
         if (action === "policy") {
             return parent.requestPolicyButton();
-        } else if (action === "invoice") {
-            return parent.invoiceButton();
-        } 
+        } else if (action === "result") {
+            return parent.resultButton();
+        }
     }
 
     const getLogo = () => {
         if (action === "policy") {
             return (
-                <img style={{ marginLeft: '177px', height: '99px', width: '143px', marginBottom:'24px' }} src='policy.jpg' alt=""/>
-            )
-        } else if (action === "invoice") {
-            return (
-                <img style={{ marginLeft: '194px', height: '98px', width: '165px' }} src='nurse.jpg' alt=""/>
+                <img style={{ marginLeft: '137px', height: '107px', width: '149px', marginBottom: '24px' }} src='food.jpg' alt="" />
             )
         } 
+        else if (action === "patient") {
+            return (
+                <img style={{ marginLeft: '194px', height: '98px', width: '165px' }} src='nsh.jpg' alt="" />
+            )
+        }
+        else if (action === "result") {
+            return (
+                <img style={{ marginLeft: '237px', height: '98px', width: '165px' }} src='nurse.jpg' alt="" />
+            )
+        }
     }
 
     const getDivStyle = () => {
         if (action === "policy") {
             return ({ display: 'flex', marginBottom: '-65px' })
-        } else if (action === "invoice") {
+        } else if (action === "result") {
             return ({ display: 'flex', marginBottom: '-3px' })
         }
     }
@@ -36,14 +42,14 @@ const Form = ({ parent, items, loading, card, title, action }) => {
     const setFieldValue = (event) => {
         if (action === "policy") {
             parent.setPolicyFieldValue(event);
-        } else if (action === "invoice") {
-            parent.setInvoiceFieldValue(event);
-        } 
+        } else if (action === "result") {
+            parent.setResultFieldValue(event);
+        }
     }
 
     return (
         <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.9 }}>
-            <Paper style={{ display: 'flex', maxWidth: '1000px', width: '650px'}}>
+            <Paper style={{ display: 'flex', maxWidth: '1000px', width: '650px' }}>
                 <div style={{ display: 'flex', padding: '24px 24px', flexDirection: 'column', width: '100%' }}>
                     <div style={getDivStyle()}>
                         <Typography variant="h5" style={{ flexGrow: 1 }}>
@@ -55,7 +61,6 @@ const Form = ({ parent, items, loading, card, title, action }) => {
                                     {getLogo()}
                                 </div>
                             </div>
-
                         </Typography>
                     </div>
 

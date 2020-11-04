@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import './button.css';
-import invoiceItems from './components/Fields/invoice';
-import policyItems from './components/Fields/policy';
+import patientItems from './components/Fields/patient';
+import visitItems from './components/Fields/visit';
+import resultItems from './components/Fields/result';
 import RestaurantRegistrationDialog from './components/RestaurantRegistrationDialog';
 import NHSRegistrationDialog from './components/NHSRegistrationDialog';
 import NavBar from './components/NavBar';
@@ -20,9 +21,9 @@ import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import axios from 'axios';
 import QRcode from 'qrcode.react';
-import crypto from 'crypto';
-import traceRoutes from './routes/hospital';
+import traceRoutes from './routes/restaurant';
 import signInRoutes from './routes/signInRoutes';
+import LoginDialog from './components/LoginDialog';
 
 axios.defaults.baseURL = 'http://localhost:3002/';
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
@@ -43,23 +44,34 @@ const muiTheme = createMuiTheme({
         "fontWeightMedium": 500
     }
 });
-
+// {
+//     id: "patientid",
+//     id: "testcentre",
+//     id: "patientname",
+//     id: "testdate",
+//     id: "testresult",
+// },
 const initState = {
-    policy: {
-        policyID: "",
-        effectiveDate: "",
-        expiryDate: "",
-        insuranceCompany: "",
+    visit: {
+        nhsappkey: "",
+        restaurantname: "",
+        restaurantid: -1,
+        visitdate: "",
+        visittime: "",
     },
-    invoice: {
-        invoiceNumber: invoiceNumber,
-        hospitalName: "St Elsewhere Hospital, Gotham City",
-        invoiceDate: "",
-        insurancePolicyNumber: "",
-        invoiceAmount: "",
-        treatmentDescription: ""
+    patient: {
+        patientid: "",
+        testandtracekey: "",
+    },
+    result: {
+        patientid: "",
+        testcentre: "",
+        patientname: "",
+        testdate: "",
+        testresult: "",
     },
 
+    collapse_open: false,
     qr_open: false,
     welcome_open: true,
     qr_hasClosed: false,
@@ -69,13 +81,13 @@ const initState = {
     registering_restaurant: false,
     registering_nhs_user: false,
     loggingIn: false,
-    acme: {
+    restaurant: {
         qr_feedbackCollected: false,
         credential_accepted: true,
-        verification_accepted: true,
+        verification_received: true,
         has_been_revoked: true,
         loading: false,
-        insurance_policy_received: true,
+        nhs_key_received: true,
         claim_button_disabled: true
     },
 
@@ -84,7 +96,8 @@ const initState = {
     register_restaurant_form_open: false,
     register_nhs_form_open: false,
     login: false,
-    // login_form_open: false,
+    login_type: '',
+    login_form_open: false,
     restaurantname: '',
     restauranttelnumber: '',
     restaurantlocation: '',
@@ -112,6 +125,7 @@ export class App extends Component {
     constructor(props) {
         super(props);
         this.state = initState;
+        sessionStorage.setItem("name", "");
     }
 
     setCollapseClosed() {
@@ -131,37 +145,39 @@ export class App extends Component {
         }
 
         this.setState(prevState => ({
-            acme: { ...prevState.acme, credential_accepted: false }
+            restaurant: { ...prevState.restaurant, credential_accepted: false }
         }));
 
         await traceRoutes.issue(invoiceDetails);
 
         this.setState(prevState => ({
-            acme: { ...prevState.acme, credential_accepted: true, has_been_revoked: false },
+            restaurant: { ...prevState.restaurant, credential_accepted: true, has_been_revoked: false },
             invoice: { ...prevState.invoice, invoiceNumber: invoiceNumber }
         }));
     }
 
-    onRequestInsurancePolicy = async () => {
+    onRequestNHSKey = async () => {
         this.setState(prevState => ({
-            acme: { ...prevState.acme, insurance_policy_received: false },
+            restaurant: { ...prevState.restaurant, nhs_key_received: false },
         }));
         let resp;
         try {
-            resp = await traceRoutes.verifyInsurance();
+            resp = await traceRoutes.verifyNHSKey();
         }
         catch (e) {
             console.log(e);
         }
         this.setState(prevState => ({
-            acme: { ...prevState.acme, insurance_policy_received: true, claim_button_disabled: false },
-            policy: {...prevState.policy, 
+            restaurant: { ...prevState.restaurant, nhs_key_received: true, claim_button_disabled: false },
+            policy: {
+                ...prevState.policy,
                 policyID: resp.data.policyID,
                 effectiveDate: resp.data.effectiveDate,
                 expiryDate: resp.data.expiryDate,
                 insuranceCompany: resp.data.insuranceCompany,
-            }, 
-            invoice: {...prevState.invoice, 
+            },
+            invoice: {
+                ...prevState.invoice,
                 insurancePolicyNumber: resp.data.policyID,
             }
         }));
@@ -178,47 +194,47 @@ export class App extends Component {
         }));
     }
 
-    setInvoiceFieldValue = (event) => {
+    setResultFieldValue = (event) => {
         const { target: { name, value } } = event;
 
         this.setState(prevState => ({
-            invoice: {
-                ...prevState.invoice, [name]: value
+            result: {
+                ...prevState.result, [name]: value
             }
         }));
     }
 
-    loadacmeCredentials = (credentials) => {
-        const acmeValues = credentials.filter(function (credential) {
-            return credential.values.Platform === "acme";
+    loadrestaurantCredentials = (credentials) => {
+        const restaurantValues = credentials.filter(function (credential) {
+            return credential.values.Platform === "restaurant";
         });
 
-        let acmeFields;
+        let restaurantFields;
         let creationDate;
-        if (acmeValues.length > 0) {
-            acmeFields = acmeValues[acmeValues.length - 1].values;
-            creationDate = acmeValues[acmeValues.length - 1].issuedAtUtc;
+        if (restaurantValues.length > 0) {
+            restaurantFields = restaurantValues[restaurantValues.length - 1].values;
+            creationDate = restaurantValues[restaurantValues.length - 1].issuedAtUtc;
             var d = new Date(creationDate);
             // d.setMonth(d.getMonth() + 1);
             this.setState(prevState => ({
-                acme: {
-                    ...prevState.acme, qr_feedbackCollected: true,
+                restaurant: {
+                    ...prevState.restaurant, qr_feedbackCollected: true,
                     credential_accepted: true, has_been_revoked: false,
                     loading: false
                 },
                 user: {
-                    UserID: acmeFields["User Name"],
-                    FeedbackScore: acmeFields["Feedback Score"],
-                    RegistrationDate: acmeFields["Registration Date"],
-                    UniqueNegativeFeedbackCount: acmeFields["Negative Feedback Count"],
-                    UniquePositiveFeedbackCount: acmeFields["Positive Feedback Count"],
-                    PositiveFeedbackPercent: acmeFields["Positive Feedback Percent"],
+                    UserID: restaurantFields["User Name"],
+                    FeedbackScore: restaurantFields["Feedback Score"],
+                    RegistrationDate: restaurantFields["Registration Date"],
+                    UniqueNegativeFeedbackCount: restaurantFields["Negative Feedback Count"],
+                    UniquePositiveFeedbackCount: restaurantFields["Positive Feedback Count"],
+                    PositiveFeedbackPercent: restaurantFields["Positive Feedback Percent"],
                     CreationDate: this.formatDate(d)
                 }
             }));
-            sessionStorage.setItem("waitingForacmeUserData", "false");
-            // sessionStorage.setItem("acmeUserData", JSON.stringify(this.state.user));
-            // sessionStorage.setItem("acmeStateData", JSON.stringify(this.state.acme));
+            sessionStorage.setItem("waitingForrestaurantUserData", "false");
+            // sessionStorage.setItem("restaurantUserData", JSON.stringify(this.state.user));
+            // sessionStorage.setItem("restaurantStateData", JSON.stringify(this.state.restaurant));
             sessionStorage.setItem("state", JSON.stringify(this.state));
 
         }
@@ -231,52 +247,65 @@ export class App extends Component {
         console.log("Setting state back to init state")
         this.setState(initState);
         sessionStorage.setItem("state", null);
+        sessionStorage.setItem("name", "Bollocks");
     }
 
     postLogin = async () => {
         this.setState({
-            login_loading: true, loggingIn: true
+            login_form_open: true, loggingIn: true, welcome_open: false
         });
-        let resp;
-        try {
-            resp = await signInRoutes.login();
-        }
-        catch (e) {
-            console.log(e);
-        }
+        // let resp;
+        // try {
+        //     resp = await signInRoutes.login();
+        // }
+        // catch (e) {
+        //     console.log(e);
+        // }
 
-        console.log("LOGIN ok! resp = ", resp);
+        // console.log("LOGIN ok! resp = ", resp);
 
-        this.setState({
-            login_loading: false,
-        });
+        // this.setState({
+        //     login_loading: false,
+        // });
 
-        this.setState({ invite_url: resp.data.login_request_url });
+        // this.setState({ invite_url: resp.data.login_request_url });
 
-        this.setQRFormOpen(true);
+        // this.setQRFormOpen(true);
 
-        console.log("WAITING FOR LOGIN DATA...")
+        // console.log("WAITING FOR LOGIN DATA...")
 
-        const login = await signInRoutes.waitForLoginConfirmed();
+        // const login = await signInRoutes.waitForLoginConfirmed();
 
-        this.setQRFormOpen(false);
+        // this.setQRFormOpen(false);
 
-        if (login && login.status === 200) {
-            console.log("Connection  = ", login.data);
-            const name = login.data.connectionContract.name;
+        // if (login && login.status === 200) {
+        //     console.log("Connection  = ", login.data);
+        //     const name = login.data.connectionContract.name;
 
+        //     this.setState({
+        //         login: true, connection_name: name, loggingIn: false
+        //     });
+        //     sessionStorage.setItem("name", name);
+        //     sessionStorage.setItem("login", true);
+
+        //     // push the credentials back in to the forms for the correct platforms
+        //     this.loadrestaurantCredentials(login.data.credentials);
+        // } else {
+        //     console.log("no connection found");
+        //     this.setState({
+        //         collapse_open: true
+        //     });
+        // }
+    }
+
+    setLoginDetails = (type) => {
+        if (type === "restaurant") {
             this.setState({
-                login: true, connection_name: name, register: true, loggingIn: false
+                login: true, register_restaurant: true, loggingIn: false, login_type: type, welcome_open: false
             });
-            sessionStorage.setItem("name", name);
-            sessionStorage.setItem("login", true);
-
-            // push the credentials back in to the forms for the correct platforms
-            this.loadacmeCredentials(login.data.credentials);
         } else {
-            console.log("no connection found");
             this.setState({
-                collapse_open: true
+                login: true, register_nhs: true, loggingIn: false, login_type: type, welcome_open: false
             });
         }
     }
@@ -284,58 +313,77 @@ export class App extends Component {
     postRestaurantRegister = async (form) => {
         // write restaurant registration data to json server
         const json = JSON.stringify(form);
-        const res = traceRoutes.registerRestaurant(JSON_SERVER_URL, json);
+        sessionStorage.setItem("name", form.restaurantname);
+
+        this.setState(prevState => ({
+            restaurant: {
+                ...prevState.restaurant, name: form.restaurantname
+            }
+        }));
+        const res = await traceRoutes.registerRestaurant(JSON_SERVER_URL, json);
+        this.setLoginDetails("restaurant");
     }
 
     postNHSRegister = async (form) => {
         // write NHS admin registration data to json server
         const json = JSON.stringify(form);
-        const res = traceRoutes.registerNHSAdmin(JSON_SERVER_URL, json);
+        sessionStorage.setItem("name", form.nhslocation);
+        const res = await traceRoutes.registerNHSAdmin(JSON_SERVER_URL, json);
+        this.setLoginDetails("nhs");
     }
 
-    // postRegister = async (form) => {
-    //     // const passcode = Math.floor(Math.random() * 900000) + 100000;
 
-    //     const nhskey = crypto.randomBytes(20).toString('hex');
+    loginFormOpen = (open) => {
+        this.setState({
+            login_form_open: open,
+            welcome_open: !open
+        });
+    }
 
-    //     const registrationInfo = {
-    //         firstname: form.firstname,
-    //         lastname: form.lastname,
-    //         nhsid: form.nhsid,
-    //         nhskey: nhskey
-    //     }
-    //     console.log(registrationInfo);
-    //     const response = await signInRoutes.register(registrationInfo);
-    //     console.log(response);
+    checkLoginInfo = async (form) => {
+        // note that in a production system we would have a single login table with keys pointing to 
+        // restaurant or NHS users.
 
-    //     // this.setState({ invite_url: "https://web.cloud.streetcred.id/link/?c_i=" + response.data.invite_url });
+        // first check restaurants
+        const res = await traceRoutes.getRestaurant(JSON_SERVER_URL, form.email, form.password);
 
-    //     this.setState({ invite_url: response.data.invite_url });
+        // if not found check NHS users
+        if (res.data.length === 1) {
+            console.log("FOUND! id = ", res.data[0].id);
+            sessionStorage.setItem("name", res.data[0].restaurantname);
+            this.setLoginDetails("restaurant");
+         
 
-    //     const resp = await signInRoutes.waitForConnection();
+            this.setState(prevState => ({
+                visit: {
+                    ...prevState.visit, restaurantname: res.data[0].restaurantname, restaurantid: res.data[0].id
+                },
+                login_form_open: false,
+                login: true,
+            }));
+            return;
+        } else {
+            // assume there can never be more than one user with same key
+            console.log("NO RESTAURANT -> LOOK FOR NHS ADMIN INSTEAD")
+            const res = await traceRoutes.getNHSAdmin(JSON_SERVER_URL, form.email, form.password);
+            if (res.data.length === 1) {
+                sessionStorage.setItem("name", res.data[0].nhslocation);
+                this.setLoginDetails("nhs");
+                this.setState({
+                    login_form_open: false,
+                    login: true,
+                });
+                return;
+            }
+            console.log("ERROR NOT FOUND!");
+            this.setState({
+                collapse_open: true
+            });
+        }
+        // if not found display error message
 
-    //     this.setState(prevState => ({
-    //         login: true,
-    //         connection_name: resp.data,
-    //         qr_open: false,
-    //         acme: { ...prevState.acme, credential_accepted: false },
-    //     }));
-    //     sessionStorage.setItem("name", this.state.connection_name);
-    //     sessionStorage.setItem("login", true);
 
-    //     await signInRoutes.waitForCredentialAccepted();
-
-    //     console.log("setting login to true");
-
-    //     this.setState(prevState => ({
-    //         qr_open: false,
-    //         login: true,
-    //         register_nhs: true,
-    //         registering_nhs_user: false,
-    //         welcome_open: false,
-    //         acme: { ...prevState.acme, credential_accepted: true },
-    //     }));
-    // }
+    }
 
     registerRestaurantFormOpen = (open) => {
         this.setState({
@@ -349,11 +397,7 @@ export class App extends Component {
             registering_nhs_user: true
         });
     }
-    loginFormOpen = (open) => {
-        this.setState({
-            login_formi_open: open
-        });
-    }
+
 
     formatDate = (date, addYears) => {
         var d = new Date(date),
@@ -367,7 +411,7 @@ export class App extends Component {
         return [year, month, day].join('-');
     }
 
-    acmeGetUserData = async () => {
+    restaurantGetUserData = async () => {
         console.log("Waiting for the feedback to arrive...");
         const user = await traceRoutes.getFeedback();
 
@@ -376,8 +420,8 @@ export class App extends Component {
         var d = new Date();
         d.setMonth(d.getMonth() + 1);
         this.setState(prevState => ({
-            acme: {
-                ...prevState.acme, qr_feedbackCollected: true,
+            restaurant: {
+                ...prevState.restaurant, qr_feedbackCollected: true,
                 loading: false
             },
             user: {
@@ -392,50 +436,50 @@ export class App extends Component {
         }));
 
         window.stop();
-        sessionStorage.setItem("waitingForacmeUserData", "false");
-        // sessionStorage.setItem("acmeUserData", JSON.stringify(this.state.user));
-        // sessionStorage.setItem("acmeStateData", JSON.stringify(this.state.acme));
+        sessionStorage.setItem("waitingForrestaurantUserData", "false");
+        // sessionStorage.setItem("restaurantUserData", JSON.stringify(this.state.user));
+        // sessionStorage.setItem("restaurantStateData", JSON.stringify(this.state.restaurant));
         sessionStorage.setItem("state", JSON.stringify(this.state));
 
         this.setState({ value: 0 });
     }
 
     getCancelInvoiceLabel(platform) {
-        return (this.state.acme.credential_accepted ? "Cancel Invoice" : "Awaiting Acceptance...");
+        return (this.state.restaurant.credential_accepted ? "Cancel Invoice" : "Awaiting Acceptance...");
     }
 
-    getPolicyLabel() {
-        return (this.state.acme.insurance_policy_received ? "Request Insurance Policy" : "Awaiting Proof...");
+    getNHSKeyLabel() {
+        return (this.state.restaurant.verification_received ? "Request NHS Test & Trace Key" : "Awaiting Verification...");
     }
 
     getInvoiceLabel() {
-        return (this.state.acme.credential_accepted ? "Issue Invoice Credential" : "Awaiting Acceptance...");
+        return (this.state.restaurant.credential_accepted ? "Issue Test Certificate Credential" : "Awaiting Acceptance...");
     }
 
     getDisabled(platform) {
-        return (!this.state[platform].credential_accepted || !(this.state.acme.insurance_policy_received));
+        return (!this.state[platform].credential_accepted || !(this.state.restaurant.nhs_key_received));
     }
 
     getClaimDisabled(platform) {
-        return (!this.state[platform].credential_accepted || !(this.state.acme.insurance_policy_received) || (this.state.acme.claim_button_disabled));
+        return (!this.state[platform].credential_accepted || !(this.state.restaurant.nhs_key_received) || (this.state.restaurant.claim_button_disabled));
     }
 
     requestPolicyButton() {
         return (
             <div style={{ marginTop: '50px', }}>
-                <Button className="registerbutton" disabled={this.getDisabled("acme")}
-                    onClick={() => this.onRequestInsurancePolicy()} >
-                    {this.getPolicyLabel("acme")}
+                <Button className="registerbutton" disabled={this.getDisabled("restaurant")}
+                    onClick={() => this.onRequestNHSKey()} >
+                    {this.getNHSKeyLabel("restaurant")}
                 </Button>
             </div>
         )
     }
 
-    invoiceButton() {
-        if (this.state.acme.has_been_revoked) {
+    resultButton() {
+        if (this.state.restaurant.has_been_revoked) {
             return (
                 <div style={{ marginTop: '45px', marginBottom: '20px' }}>
-                    <Button className="registerbutton" disabled={this.getClaimDisabled("acme")}
+                    <Button className="registerbutton" disabled={this.getClaimDisabled("restaurant")}
                         onClick={() => this.onIssueInvoice()} >
                         {this.getInvoiceLabel()}
                     </Button>
@@ -444,7 +488,7 @@ export class App extends Component {
         } else {
             return (
                 <div style={{ marginTop: '45px', marginBottom: '20px' }}>
-                    <Button className="revokebutton" disabled={this.getDisabled("acme")}
+                    <Button className="revokebutton" disabled={this.getDisabled("restaurant")}
                         onClick={() => this.onReimburse()} >
                         {this.getCancelInvoiceLabel()}
                     </Button>
@@ -476,7 +520,7 @@ export class App extends Component {
     }
 
     reloadLoginDetails() {
-        this.setState({ connection_name: sessionStorage.getItem("name") })
+        this.setState({ restaurantname: sessionStorage.getItem("name") })
         const l = sessionStorage.getItem("login") === "true" ? true : false;
         if (l) {
             console.log(">>>>>>>>>>>>>>>>>>>>>> componentDidMount: set login to ", l);
@@ -484,7 +528,7 @@ export class App extends Component {
         }
     }
 
-    reloadacmeUserDetails() {
+    reloadrestaurantUserDetails() {
         const state = JSON.parse(sessionStorage.getItem("state"));
         console.log("state = ", state);
         if (state) {
@@ -499,37 +543,43 @@ export class App extends Component {
     }
 
     getRegisterRestaurantLabel() {
-        return this.state.register_restaurant ? this.state.connection_name : "Register Restaurant"
+        const name = sessionStorage.getItem("name");
+        return this.state.register_restaurant || this.state.register_nhs ? "" : "Register Restaurant";
     }
 
     getRegisterNHSLabel() {
-        return this.state.register_nhs ? this.state.connection_name : "Register NHS Admin"
+        return this.state.register_restaurant || this.state.register_nhs ? "" : "Register NHS Admin";
     }
 
     componentDidMount() {
-        this.reloadLoginDetails();
-        this.reloadacmeUserDetails();
-        if (sessionStorage.getItem("selectedTab")) {
-            console.log("Setting selected tab to ", sessionStorage.getItem("selectedTab"))
-            this.setState({ value: parseInt(sessionStorage.getItem("selectedTab")) })
-        } else {
-            console.log("No selected tab");
-        }
-        const invoiceDate = this.formatDate(new Date(), 0);
-        this.setState(prevState => ({
-            invoice: { ...prevState.invoice, invoiceDate: invoiceDate }
-        }));
+        // this.reloadLoginDetails();
+        // this.reloadrestaurantUserDetails();
+        // if (sessionStorage.getItem("selectedTab")) {
+        //     console.log("Setting selected tab to ", sessionStorage.getItem("selectedTab"))
+        //     this.setState({ value: parseInt(sessionStorage.getItem("selectedTab")) })
+        // } else {
+        //     console.log("No selected tab");
+        // }
+        // const invoiceDate = this.formatDate(new Date(), 0);
+        // this.setState(prevState => ({
+        //     invoice: { ...prevState.invoice, invoiceDate: invoiceDate }
+        // }));
     }
 
     handleChange = (event, newValue) => {
         this.setState({ value: newValue });
     };
+    setCollapseClosed = () => {
+        this.setState({
+            collapse_open: false
+        });
+    }
 
     render() {
 
-        let web = sessionStorage.getItem("waitingForacmeUserData");
+        let web = sessionStorage.getItem("waitingForrestaurantUserData");
         if (web === "true") {
-            this.acmeGetUserData();
+            this.restaurantGetUserData();
         }
         const card = this.state;
 
@@ -541,23 +591,113 @@ export class App extends Component {
             };
         }
 
+
+
         const getTabDisplay = () => {
-            return this.state.welcome_open ? 'none' : 'block';
+            return !this.state.welcome_open && this.state.login ? 'block' : 'none';
         }
 
         // const getTabDisplay = () => {
         //     return this.state.welcome_open ? 'block' : 'none';
         // }
 
+        const getImage = () => {
+            if (this.state.login) {
+                if (this.state.login_type === "nhs") {
+                    return `url(${"covid2.jpg"})`;
+                } else {
+                    return `url(${"pub2.jpg"})`;
+                }
+
+            }
+            return `url(${"covid1.jpg"})`;
+        }
+
+        const getTabs = () => {
+            if (this.state.login_type === "nhs") {
+                return (
+                    <>
+                        <Tabs
+                            value={this.state.value}
+                            onChange={this.handleChange}
+
+                            initialSelectedIndex="1"
+                            centered
+                        >
+
+                            <Tab label="Register New Patient" {...a11yProps(0)} />
+                            <Tab label="Enter Covid Test Results" {...a11yProps(1)} />
+                        </Tabs>
+                        <TabPanel value={this.state.value} index={0}>
+                            <Form
+                                parent={this}
+                                items={patientItems}
+                                loading={this.state.restaurant.loading}
+                                card={this.state.patient}
+                                title={"Register New Patient"}
+                                action={"patient"}>
+                            </Form>
+                        </TabPanel>
+                        <TabPanel value={this.state.value} index={1}>
+                            <Form
+                                parent={this}
+                                items={resultItems}
+                                loading={this.state.restaurant.loading}
+                                card={this.state.result}
+                                title={"Enter Test Results"}
+                                action={"result"}>
+                            </Form>
+                        </TabPanel>
+                    </>
+                );
+            } else {
+                return (
+                    <>
+                        <Tabs
+                            value={this.state.value}
+                            onChange={this.handleChange}
+
+                            initialSelectedIndex="1"
+                            centered
+                        >
+
+                            <Tab label="Receive New Customer" {...a11yProps(0)} />
+                            <Tab label="Customer Matcher" {...a11yProps(1)} />
+                        </Tabs>
+                        <TabPanel value={this.state.value} index={0}>
+                            <Form
+                                parent={this}
+                                items={visitItems}
+                                loading={this.state.restaurant.loading}
+                                card={this.state.visit}
+                                title={"Customer Visit Details"}
+                                action={"policy"}>
+                            </Form>
+                        </TabPanel>
+                        <TabPanel value={this.state.value} index={1}>
+                            <Form
+                                parent={this}
+                                items={patientItems}
+                                loading={this.state.restaurant.loading}
+                                card={this.state.invoice}
+                                title={"Raise Patient Invoice"}
+                                action={"invoice"}>
+                            </Form>
+                        </TabPanel>
+                    </>
+                );
+            }
+        }
+
         return (
-            <ThemeProvider muiTheme={muiTheme}>
+            <ThemeProvider muiTheme={muiTheme} >
                 <div >
                     <GlobalCss></GlobalCss>
                     <NavBar parent={this}></NavBar>
 
                     <Paper style={{
                         height: '800px',
-                        backgroundImage: `url(${"covid1.jpg"})`,
+                        backgroundImage: getImage(),
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center center",
                         backgroundSize: "cover",
@@ -567,45 +707,18 @@ export class App extends Component {
                     }}>
                         <WelcomeDialog
                             welcome_open={this.state.welcome_open}
-                            credential_accepted={this.state.acme.credential_accepted}
+                            credential_accepted={this.state.restaurant.credential_accepted}
                         >
                         </WelcomeDialog>
                         <div style={{ display: getTabDisplay() }}>
-                            <Tabs
-                                value={this.state.value}
-                                onChange={this.handleChange}
-                                
-                                initialSelectedIndex="1"
-                                centered
-                            >
-
-                                <Tab label="Request Insurance Policy" {...a11yProps(0)} />
-                                <Tab label="Raise Invoice" {...a11yProps(1)} />
-                            </Tabs>
-                            <TabPanel value={this.state.value} index={0}>
-                                <Form
-                                    parent={this}
-                                    items={policyItems}
-                                    loading={this.state.acme.loading}
-                                    card={this.state.policy}
-                                    title={"Request Insurance Policy"}
-                                    action={"policy"}>
-                                </Form>
-                            </TabPanel>
-                            <TabPanel value={this.state.value} index={1}>
-                                <Form
-                                    parent={this}
-                                    items={invoiceItems}
-                                    loading={this.state.acme.loading}
-                                    card={this.state.invoice}
-                                    title={"Raise Patient Invoice"}
-                                    action={"invoice"}>
-                                </Form>
-                            </TabPanel>
-
+                            {getTabs()}
                         </div>
-
                     </Paper>
+                    <LoginDialog
+                        form_open={this.state.login_form_open}
+                        parent={this}
+                        collapse_open={this.state.collapse_open}>
+                    </LoginDialog>
                     <RestaurantRegistrationDialog
                         form_open={this.state.register_restaurant_form_open}
                         parent={this}>

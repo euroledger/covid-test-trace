@@ -10,10 +10,16 @@ const GlobalCss = withStyles({
             fontWidth: 900
         },
         '.MuiTab-wrapper': {
-            color: 'white'
+            color: 'black'
         },
         '.MuiInputBase-input': {
             color: 'gray'
+        },
+        '.MuiFormLabel-root.Mui-disabled': {
+            color: 'gray'
+        },
+        '.PrivateTabIndicator-colorSecondary-3': {
+            backgroundColor: 'blue'
         }
     }
 

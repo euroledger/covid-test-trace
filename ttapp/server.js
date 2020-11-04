@@ -233,26 +233,20 @@ app.post('/api/acme/issue', cors(), async function (req, res) {
     }
 });
 
-app.post('/api/verifyinvoice', cors(), async function (req, res) {
+app.post('/api/verifynhskey', cors(), async function (req, res) {
     platform = "acme";
     verificationAccepted = false;
     const d = new Date();
     const params =
     {
         verificationPolicyParameters: {
-            "name": "Proof of Invoice",
+            "name": "Proof of NHS Key",
             "version": "1.0",
             "attributes": [
                 {
-                    "policyName": "Proof of Invoice",
+                    "policyName": "Proof of NHS Key",
                     "attributeNames": [
-                        "Invoice Number",
-                        "Hospital Name",
-                        "Invoice Date",
-                        "Insurance Policy Number",
-                        "Amount",
-                        "Treatment Description"
-
+                        "nhskey"
                     ],
                     "restrictions": null
                 }

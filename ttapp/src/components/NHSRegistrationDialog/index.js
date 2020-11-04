@@ -59,7 +59,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                     />
                      <TextField
                         margin="dense"
-                        name="nshlocation"
+                        name="nhslocation"
                         label="Name of Medical Centre"
                         value={form.nhsid}
                         onChange={setFieldValue}
@@ -67,7 +67,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                     />
                      <TextField
                         margin="dense"
-                        name="nshpassword"
+                        name="nhspassword"
                         label="Password"
                         type="password"
                         value={form.nhsid}
@@ -76,7 +76,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                     />
                     <TextField
                         margin="dense"
-                        name="nshemail"
+                        name="nhsemail"
                         label="NHS Email"
                         value={form.nhsid}
                         onChange={setFieldValue}
