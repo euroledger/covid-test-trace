@@ -18,7 +18,7 @@ const NavBar = ({ parent }) => {
     const getName = () => {
         const name = sessionStorage.getItem("name");
         const welcomeStr = parent.state.login_type === "nhs" ? "NHS Covid Test Centre: " : "Welcome to";
-        return name == '' || parent.state.login === false ? '' : `${welcomeStr} ${name}`;
+        return name === '' || parent.state.login === false ? '' : `${welcomeStr} ${name}`;
     }
 
     const getBackgroundColor = () => {

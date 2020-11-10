@@ -19,7 +19,7 @@ const GlobalCss = withStyles({
             color: 'gray'
         },
         '.PrivateTabIndicator-colorSecondary-3': {
-            backgroundColor: 'blue'
+            backgroundColor: 'black'
         }
     }
 

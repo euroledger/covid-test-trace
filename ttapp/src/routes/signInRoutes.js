@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const signInRoutes = {
-    async register(registrationInfo) {
+    async connect(registrationInfo) {
         console.log("----> register user");
-        return await axios.post('/api/register', registrationInfo);
+        return await axios.post('/api/connect', registrationInfo);
     },
     async waitForConnection() {
         return await axios.get('/api/connected', null);

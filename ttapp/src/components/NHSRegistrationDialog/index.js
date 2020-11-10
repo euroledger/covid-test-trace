@@ -6,8 +6,9 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import Button from '@material-ui/core/Button';
+import Spinner from '../Spinner';
 
-const RestaurantRegistrationDialog = ({ form_open, parent }) => {
+const RestaurantRegistrationDialog = ({ form_open, parent, loading }) => {
     let initialFormState =
     {
         nhsfirstname: '',
@@ -40,6 +41,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                 <DialogContentText>
                     To register to this website, please enter your name and NHS id here.
                 </DialogContentText>
+              
                 <form noValidate autoComplete="off" onSubmit={(e) => handleFormSubmit(e)}>
                     <TextField
                         margin="dense"
@@ -57,6 +59,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                         onChange={setFieldValue}
                         fullWidth
                     />
+                      <Spinner active={loading}></Spinner>
                      <TextField
                         margin="dense"
                         name="nhslocation"
@@ -86,7 +89,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent }) => {
                         <Button onClick={() => handleRegisterClose()} color="primary">
                             Cancel
                     </Button>
-                        <Button type="submit" onClick={() => handleRegisterClose()} color="primary">
+                        <Button type="submit" color="primary">
                             Register
                     </Button>
                     </DialogActions>

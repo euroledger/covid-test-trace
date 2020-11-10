@@ -6,17 +6,19 @@ import Spinner from '../Spinner';
 
 const Form = ({ parent, items, loading, card, title, action }) => {
     const getButton = () => {
-        if (action === "policy") {
-            return parent.requestPolicyButton();
+        if (action === "patient") {
+            return parent.patientButton();
         } else if (action === "result") {
             return parent.resultButton();
+        } else if (action === "visit") {
+            return parent.visitButton();
         }
     }
 
     const getLogo = () => {
-        if (action === "policy") {
+        if (action === "visit") {
             return (
-                <img style={{ marginLeft: '137px', height: '107px', width: '149px', marginBottom: '24px' }} src='food.jpg' alt="" />
+                <img style={{ marginLeft: '199px', height: '107px', width: '149px', marginBottom: '24px' }} src='food.jpg' alt="" />
             )
         } 
         else if (action === "patient") {
@@ -40,10 +42,12 @@ const Form = ({ parent, items, loading, card, title, action }) => {
     }
 
     const setFieldValue = (event) => {
-        if (action === "policy") {
-            parent.setPolicyFieldValue(event);
+        if (action === "patient") {
+            parent.setPatientFieldValue(event);
         } else if (action === "result") {
             parent.setResultFieldValue(event);
+        } else if (action === "visit") {
+            parent.setVisitFieldValue(event);
         }
     }
 
@@ -64,7 +68,7 @@ const Form = ({ parent, items, loading, card, title, action }) => {
                         </Typography>
                     </div>
 
-                    <Spinner active={loading}></Spinner>
+                    {/* <Spinner active={loading}></Spinner> */}
                     {items.map(item => (
                         <TextField
                             name={item.id}

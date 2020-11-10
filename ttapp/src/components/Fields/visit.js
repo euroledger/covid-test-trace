@@ -15,9 +15,14 @@ const visitItems = [
         disabled: true
     },
     {
-        id: "visittime",
-        label: "Visit Time",
+        id: "visittimein",
+        label: "Visit Time of Arrival",
         disabled: true
+    },
+    {
+        id: "visittimeout",
+        label: "Visit Time of Departure",
+        disabled: false
     }
 ];
 

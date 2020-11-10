@@ -24,7 +24,7 @@ const WelcomeDialog = ({ welcome_open, credential_accepted }) => {
                 <p>Welcome to EuroLedger Test &amp; Trace</p>
             </div>
             <div style={{ marginTop: '35px', lineHeight: '25px', textAlign: 'justify' }}>
-                <p> Click on "Register Restaurant" to create a new [Restaurant] user account, "Register NHS Admin" to register a new[NHS Admin] user account or "Login" to sign in with an existing account.
+                <p> Click on "Register Venue" to create a new [Venue] user account, "Register NHS Admin" to register a new[NHS Admin] user account or "Login" to sign in with an existing account.
                 </p>
                 <div style={{ display: getWaitingDisplay() }} className="bottomright">
                     Awaiting User Registration Credential Acceptance...

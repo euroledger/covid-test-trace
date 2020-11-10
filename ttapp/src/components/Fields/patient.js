@@ -2,7 +2,12 @@ const patientItems = [
     {
         id: "patientid",
         label: "NHS Patient Ref.",
-        disabled: true
+        disabled: false
+    },
+    {
+        id: "patientname",
+        label: "Full Name",
+        disabled: false
     },
     {
         id: "testandtracekey",

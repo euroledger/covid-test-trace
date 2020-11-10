@@ -1,10 +1,10 @@
 {
   "restaurant": [
     {
-      "restaurantname": "Three Bellends",
+      "restaurantname": "The Three Bellends",
       "restauranttelnumber": "0209 244 8874",
-      "restaurantemail": "threebell@email.com",
-      "restaurantlocation": "London",
+      "restaurantemail": "threebellends@email.com",
+      "restaurantlocation": "Wirral",
       "restaurantpassword": "123456",
       "id": 1
     },
@@ -35,11 +35,15 @@
       "id": 2
     }
   ],
-  "customer": [
+  "visit": [
     {
-      "id": 0,
-      "connectionId": "123456",
-      "nhsId": "7890123"
+      "nhsappkey": "bba1936b3c7203ebbeaf487886a7b8bdec9f90ed",
+      "restaurantname": "The Three Bellends",
+      "restaurantid": "1",
+      "visitdate": "2020-11-09",
+      "visittimein": "11:34:23",
+      "visittimeout": "21:00:00",
+      "id": 1
     }
   ]
 }

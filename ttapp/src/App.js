@@ -20,8 +20,9 @@ import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import axios from 'axios';
+import crypto from 'crypto';
 import QRcode from 'qrcode.react';
-import traceRoutes from './routes/restaurant';
+import traceRoutes from './routes/traceRoutes';
 import signInRoutes from './routes/signInRoutes';
 import LoginDialog from './components/LoginDialog';
 
@@ -44,23 +45,19 @@ const muiTheme = createMuiTheme({
         "fontWeightMedium": 500
     }
 });
-// {
-//     id: "patientid",
-//     id: "testcentre",
-//     id: "patientname",
-//     id: "testdate",
-//     id: "testresult",
-// },
+
 const initState = {
     visit: {
         nhsappkey: "",
         restaurantname: "",
         restaurantid: -1,
         visitdate: "",
-        visittime: "",
+        visittimein: "",
+        visittimeout: ""
     },
     patient: {
         patientid: "",
+        patientname: "",
         testandtracekey: "",
     },
     result: {
@@ -79,10 +76,11 @@ const initState = {
     invite_url: "",
     login_url: "",
     registering_restaurant: false,
-    registering_nhs_user: false,
+    registering_nhs_admin: false,
+    registering_nhs_patient: false,
     loggingIn: false,
     restaurant: {
-        qr_feedbackCollected: false,
+        ready_to_issue_visit: false,
         credential_accepted: true,
         verification_received: true,
         has_been_revoked: true,
@@ -115,7 +113,6 @@ const initState = {
     nhsid: '',
     connection_name: sessionStorage.getItem("name"),
     country: '',
-    collapse_open: false,
     login_loading: false,
     userData: {},
     value: 0
@@ -156,7 +153,69 @@ export class App extends Component {
         }));
     }
 
+    onIssuePatient = async () => {
+
+        const nhskey = crypto.randomBytes(20).toString('hex');
+        this.setState(prevState => ({
+            patient: { ...prevState.patient, testandtracekey: nhskey },
+        }));
+
+        await this.connect(nhskey);
+
+        const patientDetails = {
+            patientid: this.state.patient.patientid,
+            patientname: this.state.patient.patientname,
+            patientkey: this.state.patient.testandtracekey
+        }
+
+        this.setState(prevState => ({
+            restaurant: { ...prevState.restaurant, credential_accepted: false }
+        }));
+
+
+        await traceRoutes.issueNHSPatient(patientDetails);
+
+        this.setState(prevState => ({
+            restaurant: { ...prevState.restaurant, credential_accepted: true, has_been_revoked: false },
+            registering_nhs_patient: false, qr_open: false,
+            patient: { ...prevState.patient, patientid: '', patientname: '', testandtracekey: '' }
+        }));
+    }
+
+    onVisitData = async () => {
+        if (this.state.restaurant.ready_to_issue_visit) {
+            const json = JSON.stringify(this.state.visit);
+            await traceRoutes.saveVisitData(JSON_SERVER_URL, json);
+        } else {
+            const nhskey = 'bba1936b3c7203ebbeaf487886a7b8bdec9f90ed';
+
+            const name = sessionStorage.getItem("name");
+            const id = sessionStorage.getItem("id");
+            var d = new Date();
+            const visitdate = this.formatDate(d, 0);
+            const visittime = this.formatTime(d);
+    
+            this.setState(prevState => ({
+                restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: true },
+                visit: {
+                    ...prevState.visit,
+    
+                    nhsappkey: nhskey,
+                    restaurantname: name,
+                    restaurantid: id,
+                    visitdate: visitdate,
+                    visittimein: visittime
+                }
+            }));
+           
+        }
+    }
+
     onRequestNHSKey = async () => {
+        // Use Connectionless proof request to get the NHS key which is used as connection id if needed
+
+        // this.connect();
+
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, nhs_key_received: false },
         }));
@@ -166,30 +225,32 @@ export class App extends Component {
         }
         catch (e) {
             console.log(e);
+            return;
         }
+
+        this.setState({ invite_url: resp.data.login_request_url });
+
+        this.setQRFormOpen(true);
+
+        resp = await traceRoutes.waitForVerificationReceived();
+
+        console.log("KEY ok! resp = ", resp);
+
+        this.setQRFormOpen(false);
+
         this.setState(prevState => ({
-            restaurant: { ...prevState.restaurant, nhs_key_received: true, claim_button_disabled: false },
-            policy: {
-                ...prevState.policy,
-                policyID: resp.data.policyID,
-                effectiveDate: resp.data.effectiveDate,
-                expiryDate: resp.data.expiryDate,
-                insuranceCompany: resp.data.insuranceCompany,
-            },
-            invoice: {
-                ...prevState.invoice,
-                insurancePolicyNumber: resp.data.policyID,
-            }
+            restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: true },
+            visit: { ...prevState.visit, nhsappkey: resp.data.nhskey }
         }));
-        console.log("LOGIN ok! resp = ", resp);
+
     }
 
-    setPolicyFieldValue = (event) => {
+    setPatientFieldValue = (event) => {
         const { target: { name, value } } = event;
 
         this.setState(prevState => ({
-            user: {
-                ...prevState.user, [name]: value
+            patient: {
+                ...prevState.patient, [name]: value
             }
         }));
     }
@@ -200,6 +261,16 @@ export class App extends Component {
         this.setState(prevState => ({
             result: {
                 ...prevState.result, [name]: value
+            }
+        }));
+    }
+
+    setVisitFieldValue = (event) => {
+        const { target: { name, value } } = event;
+
+        this.setState(prevState => ({
+            visit: {
+                ...prevState.visit, [name]: value
             }
         }));
     }
@@ -247,7 +318,27 @@ export class App extends Component {
         console.log("Setting state back to init state")
         this.setState(initState);
         sessionStorage.setItem("state", null);
-        sessionStorage.setItem("name", "Bollocks");
+        sessionStorage.setItem("name", "");
+    }
+
+    connect = async (nhskey) => {
+
+        let resp;
+        try {
+            resp = await signInRoutes.connect({ nhskey });
+        }
+        catch (e) {
+            console.log(e);
+        }
+        this.setState({ invite_url: resp.data.invite_url });
+
+        this.setQRFormOpen(true);
+
+        await signInRoutes.waitForConnection();
+
+        this.setState(prevState => ({
+            qr_open: false
+        }));
     }
 
     postLogin = async () => {
@@ -312,24 +403,50 @@ export class App extends Component {
 
     postRestaurantRegister = async (form) => {
         // write restaurant registration data to json server
-        const json = JSON.stringify(form);
-        sessionStorage.setItem("name", form.restaurantname);
 
+        // display a spinner for three seconds to mock the database write operation taking a while
         this.setState(prevState => ({
-            restaurant: {
-                ...prevState.restaurant, name: form.restaurantname
-            }
+            restaurant: { ...prevState.restaurant, loading: true }
         }));
-        const res = await traceRoutes.registerRestaurant(JSON_SERVER_URL, json);
-        this.setLoginDetails("restaurant");
+
+        setTimeout(() => {
+            console.log("DONE!");
+
+            // this.setState(prevState => ({
+            //     restaurant: { ...prevState.restaurant, loading: false, name: form.restaurantname }
+            // }));
+
+            sessionStorage.setItem("name", form.restaurantname);
+            this.setLoginDetails("restaurant");
+            this.registerRestaurantFormOpen(false);
+        }, 2000);
+        const json = JSON.stringify(form);
+        await traceRoutes.registerRestaurant(JSON_SERVER_URL, json);
     }
 
     postNHSRegister = async (form) => {
-        // write NHS admin registration data to json server
+
+
+        // display a spinner for three seconds to mock the database write operation taking a while
+        this.setState(prevState => ({
+            restaurant: { ...prevState.restaurant, loading: true }
+        }));
+
+        setTimeout(() => {
+            console.log("DONE!");
+
+            // write NHS admin registration data to json server
+
+            sessionStorage.setItem("name", form.nhslocation);
+
+            this.setLoginDetails("nhs");
+            this.registerNHSFormOpen(false);
+            this.setState(prevState => ({
+                restaurant: { ...prevState.restaurant, loading: false, name: form.restaurantname }
+            }));
+        }, 2000);
         const json = JSON.stringify(form);
-        sessionStorage.setItem("name", form.nhslocation);
-        const res = await traceRoutes.registerNHSAdmin(JSON_SERVER_URL, json);
-        this.setLoginDetails("nhs");
+        await traceRoutes.registerNHSAdmin(JSON_SERVER_URL, json);
     }
 
 
@@ -349,10 +466,9 @@ export class App extends Component {
 
         // if not found check NHS users
         if (res.data.length === 1) {
-            console.log("FOUND! id = ", res.data[0].id);
             sessionStorage.setItem("name", res.data[0].restaurantname);
+            sessionStorage.setItem("id", res.data[0].id);
             this.setLoginDetails("restaurant");
-         
 
             this.setState(prevState => ({
                 visit: {
@@ -394,12 +510,27 @@ export class App extends Component {
     registerNHSFormOpen = (open) => {
         this.setState({
             register_nhs_form_open: open,
-            registering_nhs_user: true
+            registering_nhs_admin: true
         });
     }
 
+    formatTime = (d) => {
+        var hours = '' + d.getHours();
+        var minutes = '' + d.getMinutes();
+        var seconds = '' + d.getSeconds();
+
+        if (hours.length < 2) hours = '0' + hours;
+
+        if (minutes.length < 2) minutes = '0' + minutes;
+
+        console.log("QUACK seconds= ", seconds, " seconds.length = ", seconds.length)
+        if (seconds.length < 2) seconds = '0' + seconds;
+
+        return [hours, minutes, seconds].join(':');
+    }
 
     formatDate = (date, addYears) => {
+
         var d = new Date(date),
             month = '' + (d.getMonth() + 1), // add 1 as January = 0
             day = '' + d.getDate(),
@@ -448,8 +579,15 @@ export class App extends Component {
         return (this.state.restaurant.credential_accepted ? "Cancel Invoice" : "Awaiting Acceptance...");
     }
 
+    getVisitLabel() {
+        if (this.state.restaurant.ready_to_issue_visit) {
+            return "Save Visit Data";
+        }
+        return (this.state.restaurant.nhs_key_received ? "Request Test & Trace Key" : "Awaiting Verification...");
+    }
+
     getNHSKeyLabel() {
-        return (this.state.restaurant.verification_received ? "Request NHS Test & Trace Key" : "Awaiting Verification...");
+        return (this.state.restaurant.verification_received ? "Issue Patient Data" : "Awaiting Verification...");
     }
 
     getInvoiceLabel() {
@@ -460,16 +598,24 @@ export class App extends Component {
         return (!this.state[platform].credential_accepted || !(this.state.restaurant.nhs_key_received));
     }
 
-    getClaimDisabled(platform) {
-        return (!this.state[platform].credential_accepted || !(this.state.restaurant.nhs_key_received) || (this.state.restaurant.claim_button_disabled));
+    getNHSPatientDisabled() {
+        return (this.state.patient.patientid === '' || this.state.patient.patientname === '');
     }
 
-    requestPolicyButton() {
+    getVisitDisabled() {
+        return false; // for now
+    }
+
+    // getClaimDisabled(platform) {
+    //     return (!this.state[platform].credential_accepted || !(this.state.restaurant.nhs_key_received) || (this.state.restaurant.claim_button_disabled));
+    // }
+
+    patientButton() {
         return (
             <div style={{ marginTop: '50px', }}>
-                <Button className="registerbutton" disabled={this.getDisabled("restaurant")}
-                    onClick={() => this.onRequestNHSKey()} >
-                    {this.getNHSKeyLabel("restaurant")}
+                <Button className="registerbutton" disabled={this.getNHSPatientDisabled()}
+                    onClick={() => this.onIssuePatient()} >
+                    {this.getNHSKeyLabel()}
                 </Button>
             </div>
         )
@@ -488,7 +634,7 @@ export class App extends Component {
         } else {
             return (
                 <div style={{ marginTop: '45px', marginBottom: '20px' }}>
-                    <Button className="revokebutton" disabled={this.getDisabled("restaurant")}
+                    <Button className="revokebutton" disabled={this.getNHSPatientDisabled()}
                         onClick={() => this.onReimburse()} >
                         {this.getCancelInvoiceLabel()}
                     </Button>
@@ -497,8 +643,32 @@ export class App extends Component {
         }
     }
 
+    visitButton() {
+        return (
+            <div style={{ marginTop: '50px', }}>
+                <Button className="registerbutton" disabled={this.getVisitDisabled()}
+                    onClick={() =>
+                        // this.onRequestNHSKey()
+                        this.onVisitData()
+                    }
+                >
+                    {this.getVisitLabel()}
+                </Button>
+            </div>
+        )
+    }
+
     getQRCodeLabel() {
-        return this.state.registering_restaurant ? "Scan this QR code to Register a Restaurant with EuroLedger Test & Trace" : this.state.registering_nhs_user ? "Scan this QR Code to register as an NHS Administrator with EuroLedger Test & Trace" : "Scan this QR code to Login to EuroLedger Test & Trace"
+        if (this.state.registering_restaurant) {
+            return "Scan this QR code to Register a Restaurant with EuroLedger Test & Trace";
+        } else if (this.state.registering_nhs_admin) {
+            return "Scan this QR Code to register as an NHS Administrator with EuroLedger Test & Trace"
+        } else if (this.state.registering_nhs_patient) {
+            return "Scan this QR code to Register an NHS Patient as a Test & Trace User";
+        }
+        else {
+            return "Scan this QR code to Login to EuroLedger Test & Trace"
+        }
     }
 
     handleLoginClose() {
@@ -543,8 +713,7 @@ export class App extends Component {
     }
 
     getRegisterRestaurantLabel() {
-        const name = sessionStorage.getItem("name");
-        return this.state.register_restaurant || this.state.register_nhs ? "" : "Register Restaurant";
+        return this.state.register_restaurant || this.state.register_nhs ? "" : "Register Venue";
     }
 
     getRegisterNHSLabel() {
@@ -581,9 +750,6 @@ export class App extends Component {
         if (web === "true") {
             this.restaurantGetUserData();
         }
-        const card = this.state;
-
-
         const a11yProps = (index) => {
             return {
                 id: `simple-tab-${index}`,
@@ -671,7 +837,7 @@ export class App extends Component {
                                 loading={this.state.restaurant.loading}
                                 card={this.state.visit}
                                 title={"Customer Visit Details"}
-                                action={"policy"}>
+                                action={"visit"}>
                             </Form>
                         </TabPanel>
                         <TabPanel value={this.state.value} index={1}>
@@ -721,11 +887,15 @@ export class App extends Component {
                     </LoginDialog>
                     <RestaurantRegistrationDialog
                         form_open={this.state.register_restaurant_form_open}
-                        parent={this}>
+                        parent={this}
+                        loading={this.state.restaurant.loading}
+                    >
+
                     </RestaurantRegistrationDialog>
                     <NHSRegistrationDialog
                         form_open={this.state.register_nhs_form_open}
-                        parent={this}>
+                        parent={this}
+                        loading={this.state.restaurant.loading}>
                     </NHSRegistrationDialog>
                     <Dialog open={this.state.qr_open} onClose={() => this.setState({ qr_open: false, qr_hasClosed: true })}>
                         <DialogTitle style={{ width: "300px" }}>{this.getQRCodeLabel()}</DialogTitle>

@@ -1,9 +1,9 @@
 import React from 'react';
-import HashLoader from 'react-spinners/HashLoader';
+import HashLoader from 'react-spinners/RingLoader';
 import { css } from '@emotion/core';
 
 const override = css`
-    top: 50%,
+    top: 70%,
     display: block;
     margin: 0 auto;
     max-height: 0;
@@ -15,7 +15,7 @@ export default function Spinner({ active }) {
             css={override}
             sizeUnit={'px'}
             size={100}
-            color={'#1276BE'}
+            color={'#004d00'}
             loading={active}
         />
     );

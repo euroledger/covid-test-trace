@@ -7,13 +7,13 @@ const express = require('express');
 const ngrok = require('ngrok');
 const cache = require('./model');
 const utils = require('./utils');
+const crypto = require('crypto');
 
 const debug = require('debug')('tmp:server');
 
-
-
 var fs = require('fs');
 var https = require('https');
+let keydata;
 
 require('dotenv').config();
 
@@ -75,37 +75,37 @@ app.post('/webhook', async function (req, res) {
             }
             registered = true;
 
-            const attribs = cache.get(req.body.object_id);
-            console.log("attribs from cache = ", attribs);
-            var param_obj = JSON.parse(attribs);
+            // const attribs = cache.get(req.body.object_id);
+            // console.log("attribs from cache = ", attribs);
+            // var param_obj = JSON.parse(attribs);
 
 
-            var params =
-            {
-                // credentialOfferParameters: {
-                definitionId: process.env.CRED_DEF_ID_USER_DETAILS,
-                connectionId: req.body.object_id,
-                credentialValues: {
-                    'First Name': param_obj["firstname"],
-                    'Last Name': param_obj["lastname"],
-                    'NHS Patient ID': param_obj["nhsid"],
-                    'NHS Access Key': param_obj["nhskey"]
-                    // }
-                }
-            }
-            console.log(">>>>>>>>>>>>> Creating credential with params ", params);
-            await client.createCredential(params);
-            console.log("CREDENTIAL CREATED user details!");
+            // var params =
+            // {
+            //     // credentialOfferParameters: {
+            //     definitionId: process.env.CRED_DEF_ID_USER_DETAILS,
+            //     connectionId: req.body.object_id,
+            //     credentialValues: {
+            //         'First Name': param_obj["firstname"],
+            //         'Last Name': param_obj["lastname"],
+            //         'NHS Patient ID': param_obj["nhsid"],
+            //         'NHS Access Key': param_obj["nhskey"]
+            //         // }
+            //     }
+            // }
+            // console.log(">>>>>>>>>>>>> Creating credential with params ", params);
+            // await client.createCredential(params);
+            // console.log("CREDENTIAL CREATED user details!");
         }
         else if (req.body.message_type === 'credential_request') {
             console.log("cred request notif");
             // if (connected) {
             console.log("IMPORTANT platform = ", platform);
 
-            if (platform === "acme") {
-                acmeCredentialId = req.body.object_id;
-                console.log("Issuing acme credential to wallet, id = ", acmeCredentialId);
-                await client.issueCredential(acmeCredentialId);
+            if (platform === "nhs") {
+                nshCredentialId = req.body.object_id;
+                console.log("Issuing NHS credential to wallet, id = ", nshCredentialId);
+                await client.issueCredential(nshCredentialId);
             } else {
                 // user details
                 userRegistrationCredentialId = req.body.object_id;
@@ -127,21 +127,19 @@ app.post('/webhook', async function (req, res) {
 
             console.log("Proof received; proof data = ", proof["proof"]);
 
-            if (platform === "acme") {
-                const data = proof["proof"]["Proof of Invoice"]["attributes"];
+            if (platform === "restaurant") {
+                const data = proof["proof"]["NHS Test & Trace Key"]["attributes"];
 
-                verifyRecord = {
-                    invoiceNumber: data["Invoice Number"],
-                    hospitalName: data["Hospital Name"],
-                    invoiceDate: data["Invoice Date"],
-                    insurancePolicyNumber: data["Insurance Policy Number"],
-                    invoiceAmount: data["Amount"],
-                    treatmentDescription: data["Treatment Description"]
+                console.log("----------> received proof request data: ", data);
+                keydata = {
+                    nhskey: data["NHS Test & Trace Key"]
                 };
 
                 verificationAccepted = true;
 
-                console.log(verifyRecord);
+                console.log(keydata);
+                // res.status(200).send();
+
             } else {
 
                 connectionId = proof["proof"]["Login Verification"]["attributes"]["Acme Access Token"];
@@ -206,25 +204,23 @@ app.post('/webhook', async function (req, res) {
 
 //FRONTEND ENDPOINTS
 
-app.post('/api/acme/issue', cors(), async function (req, res) {
+app.post('/api/patient/issue', cors(), async function (req, res) {
 
-    console.log("IN /api/acme/issue: attributes = ", req.body);
-    platform = "acme";
+    console.log("IN /api/patient/issue: attributes = ", req.body);
+    platform = "nhs";
     if (connectionId) {
         var params =
         {
-            credentialOfferParameters: {
-                definitionId: process.env.POLICY_ID,
-                connectionId: connectionId,
-                credentialValues: {
-                    "Policy ID": req.body["policyID"],
-                    "Effective Date": req.body["effectiveDate"],
-                    "Expiry Date": req.body["expiryDate"],
-                    "Insurance Company": req.body["insuranceCompany"],
-                }
+            definitionId: process.env.CRED_DEF_ID_NHS_PATIENT,
+            connectionId: connectionId,
+            credentialValues: {
+                "NHS Patient Ref": req.body["patientid"],
+                "Full Name": req.body["patientname"],
+                "NHS Test & Trace Key": req.body["patientkey"]
             }
         }
         console.log("issue credential with connection id " + connectionId + " params = ", params);
+
         await client.createCredential(params);
         console.log("----------------------> CREDENTIAL CREATED!");
         res.status(200).send();
@@ -234,36 +230,22 @@ app.post('/api/acme/issue', cors(), async function (req, res) {
 });
 
 app.post('/api/verifynhskey', cors(), async function (req, res) {
-    platform = "acme";
+    platform = "restaurant";
     verificationAccepted = false;
-    const d = new Date();
-    const params =
-    {
-        verificationPolicyParameters: {
-            "name": "Proof of NHS Key",
-            "version": "1.0",
-            "attributes": [
-                {
-                    "policyName": "Proof of NHS Key",
-                    "attributeNames": [
-                        "nhskey"
-                    ],
-                    "restrictions": null
-                }
-            ],
-            "predicates": []
-        }
-    }
-    console.log("send verification request, connectionId = ", connectionId, "; params = ", params);
-    const resp = await client.sendVerificationFromParameters(connectionId, params);
-    res.status(200).send();
+
+    const policyId = process.env.NHS_KEY_VERIFICATION_ID;
+    const resp = await client.createVerificationFromPolicy(policyId);
+
+    console.log("resp = ", resp);
+
+    res.status(200).send({ login_request_url: resp.verificationRequestUrl });
 });
 
 app.get('/api/verificationreceived', cors(), async function (req, res) {
     console.log("Waiting for verification...");
     await utils.until(_ => verificationAccepted === true);
 
-    res.status(200).send(verifyRecord);
+    res.status(200).send(keydata);
 });
 
 
@@ -313,10 +295,11 @@ app.get('/api/loginconfirmed', cors(), async function (req, res) {
 });
 
 
-app.post('/api/register', cors(), async function (req, res) {
+app.post('/api/connect', cors(), async function (req, res) {
     console.log("Getting invite...")
     console.log("Invite params = ", req.body);
-    const invite = await getInvite(req.body.passcode);
+
+    const invite = await getInvite(req.body.nhskey);
     const attribs = JSON.stringify(req.body);
     console.log("invite= ", invite);
     cache.add(invite.connectionId, attribs);
@@ -360,10 +343,16 @@ app.post('/api/credential_accepted', cors(), async function (req, res) {
 
 
 const getInvite = async (id) => {
+    let connId = crypto.randomBytes(20).toString('hex');
+
+    if (id != undefined) {
+        connId = id;
+    }
+
     try {
         var result = await client.createConnection({
             connectionInvitationParameters: {
-                connectionId: id,
+                connectionId: connId,
                 multiParty: false
             }
         });
