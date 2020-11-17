@@ -36,17 +36,17 @@ const RestaurantRegistrationDialog = ({ form_open, parent, loading }) => {
 
     return (
         <Dialog open={form_open} onClose={() => handleRegisterClose()} aria-labelledby="form-dialog-title">
-            <DialogTitle id="form-dialog-title">Register Restaurant</DialogTitle>
+            <DialogTitle id="form-dialog-title">Register Venue</DialogTitle>
             <DialogContent>
                 <DialogContentText>
-                    To register a restaurant to this website, please enter restaurant name, email address and location here.
+                    To register a venue to this website, please enter venue name, email address and location here.
                                 </DialogContentText>
                 <Spinner active={loading}></Spinner>
                 <form noValidate autoComplete="off" onSubmit={(e) => handleFormSubmit(e)}>
                     <TextField
                         margin="dense"
                         name="restaurantname"
-                        label="Restaurant Name"
+                        label="Venue Name"
                         value={form.restaurantname}
                         onChange={setFieldValue}
                         fullWidth
@@ -54,7 +54,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent, loading }) => {
                     <TextField
                         margin="dense"
                         name="restauranttelnumber"
-                        label="Restaurant Telephone Number"
+                        label="Venue Telephone Number"
                         value={form.restaurantcontact}
                         onChange={setFieldValue}
                         fullWidth
@@ -62,7 +62,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent, loading }) => {
                     <TextField
                         margin="dense"
                         name="restaurantemail"
-                        label="Restaurant Email Address"
+                        label="Venue Email Address"
                         value={form.restaruantemail}
                         onChange={setFieldValue}
                         fullWidth
@@ -70,7 +70,7 @@ const RestaurantRegistrationDialog = ({ form_open, parent, loading }) => {
                     <TextField
                         margin="dense"
                         name="restaurantlocation"
-                        label="Restaurant Location"
+                        label="Venue Location"
                         value={form.restaurantlocation}
                         onChange={setFieldValue}
                         fullWidth

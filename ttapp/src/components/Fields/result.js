@@ -1,18 +1,28 @@
 const resultItems = [
     {
         id: "patientid",
-        label: "NHS Patient Ref.",
+        label: "NHS Patient Reference",
         disabled: true
     },
+    {
+        id: "patientname",
+        label: "Patient Name",
+        disabled: true
+    },
+    {
+        id: "certificateid",
+        label: "Test Certificate Ref.",
+        disabled: true
+    },    
     {
         id: "testcentre",
         label: "NHS Test Centre",
         disabled: true
     },
     {
-        id: "patientname",
-        label: "Patient Name",
-        disabled: false
+        id: "testtype",
+        label: "Test Type",
+        disabled: true
     },
     {
         id: "testdate",
@@ -22,6 +32,12 @@ const resultItems = [
     {
         id: "testresult",
         label: "Covid Test Result",
+        type: "dropdown",
+        menuItems: [
+            "POSITIVE",
+            "NEGATIVE",
+            "NO RESULT"
+        ],
         disabled: false
     },
 ];

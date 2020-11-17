@@ -45,12 +45,11 @@ app.get('/', function (req, res) {
 });
 
 let acmeCredentialId;
-let connectionId;
+let connId;
 let registered = false;
 let loginConfirmed = false;
 let credentialAccepted = false;
 let verificationAccepted = false;
-let platform;
 let name = '';
 let connectionAndCredentials;
 
@@ -60,13 +59,13 @@ app.post('/webhook', async function (req, res) {
         console.log("got webhook" + req + "   type: " + req.body.message_type);
         if (req.body.message_type === 'new_connection') {
 
-            connectionId = req.body.object_id;
+            connId = req.body.object_id;
 
             console.log("new connection notif, connection = ", req.body);
             try {
                 // use the connection contract to get the name for the front end to use
-                console.log("Calling getConnection with connection id", connectionId);
-                connectionContract = await getConnectionWithTimeout(connectionId);
+                console.log("Calling getConnection with connection id", connId);
+                connectionContract = await getConnectionWithTimeout(connId);
                 console.log("--------------->NEW CONNECTION: ", connectionContract);
                 name = connectionContract.name;
             } catch (e) {
@@ -100,18 +99,11 @@ app.post('/webhook', async function (req, res) {
         else if (req.body.message_type === 'credential_request') {
             console.log("cred request notif");
             // if (connected) {
-            console.log("IMPORTANT platform = ", platform);
 
-            if (platform === "nhs") {
-                nshCredentialId = req.body.object_id;
-                console.log("Issuing NHS credential to wallet, id = ", nshCredentialId);
-                await client.issueCredential(nshCredentialId);
-            } else {
-                // user details
-                userRegistrationCredentialId = req.body.object_id;
-                console.log("Issuing user details credential to wallet, id = ", userRegistrationCredentialId);
-                await client.issueCredential(userRegistrationCredentialId);
-            }
+            nshCredentialId = req.body.object_id;
+            console.log("Issuing NHS credential to wallet, id = ", nshCredentialId);
+            await client.issueCredential(nshCredentialId);
+
             console.log("Credential Issue -> DONE");
             credentialAccepted = true;
             // }
@@ -127,70 +119,82 @@ app.post('/webhook', async function (req, res) {
 
             console.log("Proof received; proof data = ", proof["proof"]);
 
-            if (platform === "restaurant") {
-                const data = proof["proof"]["NHS Test & Trace Key"]["attributes"];
+
+            if (template === "key") {
+                const data = proof["proof"]["NHS Proof of Key"]["attributes"];
 
                 console.log("----------> received proof request data: ", data);
                 keydata = {
-                    nhskey: data["NHS Test & Trace Key"]
+                    nhskey: data["NHS Test & Trace Key"],
                 };
-
-                verificationAccepted = true;
-
+                connId = keydata.nhskey;
                 console.log(keydata);
-                // res.status(200).send();
-
             } else {
+                const data = proof["proof"]["NHS Verification"]["attributes"];
 
-                connectionId = proof["proof"]["Login Verification"]["attributes"]["Acme Access Token"];
-
-                // verify that the connection record exists for this id
-                let connectionContract;
-                try {
-                    connectionContract = await getConnectionWithTimeout(connectionId);
-                } catch (e) {
-                    console.log(e.message || e.toString());
-                    res.status(500).send("connection record not found for id " + connectionId);
-                }
-
-                if (connectionContract) {
-                    console.log("connectionContract = ", connectionContract);
-
-                    console.log("---------------- GET ALL CREDENTIALS -------------------");
-
-                    // retreive all credentials for this id
-                    let credentials = await client.listCredentials();
-                    var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
-                        return credential.connectionId === connectionId;
-                    });
-                    console.log(issuedCredentialsForThisConnection)
-
-                    var issuedCredentialsForThisUser = credentials.filter(function (credential) {
-                        return credential.state === "Issued" && credential.connectionId === connectionId;
-                    });
-
-                    // console.log(issuedCredentialsForThisUser);
-
-                    connectionAndCredentials = {
-                        connectionContract: connectionContract,
-                        credentials: issuedCredentialsForThisUser
-                    }
-                    // save the credential IDs of previously issued credentials -> these can be used for revocation
-                    issuedCredentialsForThisUser.forEach(credential => {
-                        if (credential.values.Platform === "acme") {
-                            console.log("-> Setting acmeCredentialId to ", credential.credentialId);
-                            acmeCredentialId = credential.credentialId;
-                        }
-                    });
-                    verificationAccepted = true;
-                    loginConfirmed = true;
-                    // res.status(200).send(connectionAndCredentials);
-
-                } else {
-                    console.log("connection record not found for id ", connectionId);
-                    res.status(500);
-                }
+                console.log("----------> received proof request data: ", data);
+                keydata = {
+                    nhskey: data["NHS Test & Trace Key"],
+                    id: data["NHS Patient Ref"],
+                    name: data["Full Name"]
+                };
+                connId = keydata.nhskey;
+                console.log(keydata);
             }
+            verificationAccepted = true;
+            // res.status(200).send();
+
+            // } else {
+
+            //     connectionId = proof["proof"]["Login Verification"]["attributes"]["Acme Access Token"];
+
+            //     // verify that the connection record exists for this id
+            //     let connectionContract;
+            //     try {
+            //         connectionContract = await getConnectionWithTimeout(connectionId);
+            //     } catch (e) {
+            //         console.log(e.message || e.toString());
+            //         res.status(500).send("connection record not found for id " + connectionId);
+            //     }
+
+            //     if (connectionContract) {
+            //         console.log("connectionContract = ", connectionContract);
+
+            //         console.log("---------------- GET ALL CREDENTIALS -------------------");
+
+            //         // retreive all credentials for this id
+            //         let credentials = await client.listCredentials();
+            //         var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
+            //             return credential.connectionId === connectionId;
+            //         });
+            //         console.log(issuedCredentialsForThisConnection)
+
+            //         var issuedCredentialsForThisUser = credentials.filter(function (credential) {
+            //             return credential.state === "Issued" && credential.connectionId === connectionId;
+            //         });
+
+            //         // console.log(issuedCredentialsForThisUser);
+
+            //         connectionAndCredentials = {
+            //             connectionContract: connectionContract,
+            //             credentials: issuedCredentialsForThisUser
+            //         }
+            //         // save the credential IDs of previously issued credentials -> these can be used for revocation
+            //         issuedCredentialsForThisUser.forEach(credential => {
+            //             if (credential.values.Platform === "acme") {
+            //                 console.log("-> Setting acmeCredentialId to ", credential.credentialId);
+            //                 acmeCredentialId = credential.credentialId;
+            //             }
+            //         });
+            //         verificationAccepted = true;
+            //         loginConfirmed = true;
+            //         // res.status(200).send(connectionAndCredentials);
+
+            //     } else {
+            //         console.log("connection record not found for id ", connectionId);
+            //         res.status(500);
+            //     }
+            // }
         } else {
             console.log("WEBHOOK message_type = ", req.body.message_type);
             console.log("body = ", req.body);
@@ -207,19 +211,46 @@ app.post('/webhook', async function (req, res) {
 app.post('/api/patient/issue', cors(), async function (req, res) {
 
     console.log("IN /api/patient/issue: attributes = ", req.body);
-    platform = "nhs";
-    if (connectionId) {
+    if (connId) {
         var params =
         {
             definitionId: process.env.CRED_DEF_ID_NHS_PATIENT,
-            connectionId: connectionId,
+            connectionId: connId,
             credentialValues: {
                 "NHS Patient Ref": req.body["patientid"],
                 "Full Name": req.body["patientname"],
                 "NHS Test & Trace Key": req.body["patientkey"]
             }
         }
-        console.log("issue credential with connection id " + connectionId + " params = ", params);
+        console.log("issue credential with connection id " + connId + " params = ", params);
+
+        await client.createCredential(params);
+        console.log("----------------------> CREDENTIAL CREATED!");
+        res.status(200).send();
+    } else {
+        res.status(500).send("Not connected");
+    }
+});
+
+app.post('/api/testresult/issue', cors(), async function (req, res) {
+
+    console.log("IN /api/testresult/issue: attributes = ", req.body);
+    if (connId) {
+        var params =
+        {
+            definitionId: process.env.CRED_DEF_ID_NHS_TEST_CERIFICATE,
+            connectionId: connId,
+            credentialValues: {
+                "Patient Reference": req.body["patientId"],
+                "Patient Name": req.body["patientName"],
+                "Certificate ID": req.body["certificateId"],
+                "Test Centre": req.body["testCentre"],
+                "Test Type": req.body["testType"],
+                "Test Date": req.body["testDate"],
+                "Test Result": req.body["testResult"]
+            }
+        }
+        console.log("issue covid certificate credential with connection id " + connId + " params = ", params);
 
         await client.createCredential(params);
         console.log("----------------------> CREDENTIAL CREATED!");
@@ -230,10 +261,26 @@ app.post('/api/patient/issue', cors(), async function (req, res) {
 });
 
 app.post('/api/verifynhskey', cors(), async function (req, res) {
-    platform = "restaurant";
+    template = "key";
     verificationAccepted = false;
 
     const policyId = process.env.NHS_KEY_VERIFICATION_ID;
+    console.log("KEY: Create verification for policy ", policyId);
+
+    const resp = await client.createVerificationFromPolicy(policyId);
+
+    console.log("resp = ", resp);
+
+    res.status(200).send({ login_request_url: resp.verificationRequestUrl });
+});
+
+app.post('/api/verifynhspatient', cors(), async function (req, res) {
+    template = "patient";
+    verificationAccepted = false;
+
+    const policyId = process.env.NHS_PATIENT_VERIFICATION_ID;
+    console.log("PATIENT: Create verification for policy ", policyId);
+
     const resp = await client.createVerificationFromPolicy(policyId);
 
     console.log("resp = ", resp);
@@ -299,12 +346,12 @@ app.post('/api/connect', cors(), async function (req, res) {
     console.log("Getting invite...")
     console.log("Invite params = ", req.body);
 
-    const invite = await getInvite(req.body.nhskey);
+    const invite = await getInvite();
     const attribs = JSON.stringify(req.body);
     console.log("invite= ", invite);
     cache.add(invite.connectionId, attribs);
     console.log("setting invite URL to ", invite.invitationUrl);
-    res.status(200).send({ invite_url: invite.invitationUrl });
+    res.status(200).send({ invite_url: invite.invitationUrl, key: invite.connectionId });
 });
 
 app.post('/api/acme/revoke', cors(), async function (req, res) {
@@ -312,11 +359,11 @@ app.post('/api/acme/revoke', cors(), async function (req, res) {
     await client.revokeCredential(acmeCredentialId);
     console.log("ACME Credential revoked!");
 
-    console.log("++++ SEND MESSAGE WITH CONNECTION ID ", connectionId);
+    console.log("++++ SEND MESSAGE WITH CONNECTION ID ", connId);
     const params =
     {
         basicMessageParameters: {
-            "connectionId": connectionId,
+            "connectionId": connId,
             "text": "Acme credential has been revoked. You may want to delete this from your wallet."
         }
     };
@@ -342,20 +389,9 @@ app.post('/api/credential_accepted', cors(), async function (req, res) {
 });
 
 
-const getInvite = async (id) => {
-    let connId = crypto.randomBytes(20).toString('hex');
-
-    if (id != undefined) {
-        connId = id;
-    }
-
+const getInvite = async () => {
     try {
-        var result = await client.createConnection({
-            connectionInvitationParameters: {
-                connectionId: connId,
-                multiParty: false
-            }
-        });
+        var result = await client.createConnection({});
         console.log(">>>>>>>>>>>> INVITE = ", result);
         return result;
     } catch (e) {

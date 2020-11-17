@@ -20,6 +20,12 @@ const GlobalCss = withStyles({
         },
         '.PrivateTabIndicator-colorSecondary-3': {
             backgroundColor: 'black'
+        },
+        'MuiTableContainer-root': {
+            height: '500px'
+        },
+        'MuiPaper-rounded': {
+            height: '500px'
         }
     }
 

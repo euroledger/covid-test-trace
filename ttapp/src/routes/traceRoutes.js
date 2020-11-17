@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const traceRoutes = {
-    async issue(policyDetails) {
-        await axios.post('/api/hospital/issue', policyDetails);
+    async issueTestCertificate(testDetails) {
+        await axios.post('/api/testresult/issue', testDetails);
         console.log("WAITING FOR CREDENIAL ACCEPTANCE...");
         await axios.post('/api/credential_accepted', null);
 
@@ -13,10 +13,12 @@ const traceRoutes = {
     },
     async verifyNHSKey() {
         return await axios.post('/api/verifynhskey', null);
-
-        // return await axios.get('/api/verificationreceived');
     },
 
+    async verifyNHSPatient() {
+        return await axios.post('/api/verifynhspatient', null);
+    },
+    
     async waitForVerificationReceived() {
         return await axios.get('/api/verificationreceived');
     },
@@ -51,6 +53,19 @@ const traceRoutes = {
 
     async saveVisitData(url, json) {
         return await axios.post(`${url}/visit`, json);
+    },
+
+    async searchForVisitsUsingKey(url, key) {
+        const query = `${url}/visit?nhsappkey=${key}`;
+
+        console.log("QUERY = ", query);
+        return await axios.get(query);
+    },
+
+    // const visitors = await traceRoutes.searchForVisitsUsing(JSON_SERVER_URL, venueId, visitDate);
+    async searchForVisitsUsingIdAndDate(url, venueid, date) {
+        const query = `${url}/visit?restaurantid=${venueid}&visitdate=${date}`;
+        return await axios.get(query);
     }
 };
 
