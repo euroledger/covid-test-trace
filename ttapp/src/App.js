@@ -267,14 +267,20 @@ export class App extends Component {
         return false;
     }
 
-    onSearch = async () => {
-        console.log("search for contacts...");
+    sendMessagesToContacts = async () => {
+        const ids = this.state.matcher.rows.map(a => a.nhsappkey);
+        const resp = await traceRoutes.sendMessages(ids); 
+    }
 
+    onSearch = async () => {
+        if (this.state.matcher.ready_to_send_message) {
+            return await this.sendMessagesToContacts();
+        }
+        
         // 1. search for visits
         const resp = await traceRoutes.searchForVisitsUsingKey(JSON_SERVER_URL, this.state.matcher.nhsappkey);
 
         // resp will be a list of visits (all places this keyholder has visited) => resp.data
-        console.log("QUACK resp.data = ", resp.data)
         // 2. for each visit in the list
         let visit;
         let aggregateVisits = [];

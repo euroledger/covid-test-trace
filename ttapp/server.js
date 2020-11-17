@@ -354,12 +354,55 @@ app.post('/api/connect', cors(), async function (req, res) {
     res.status(200).send({ invite_url: invite.invitationUrl, key: invite.connectionId });
 });
 
+app.post('/api/sendmessages', cors(), async function (req, res) {
+    let connectionIds = req.body;
+    const d = new Date();
+    for (id of connectionIds) {
+        // verify that the connection id is a valid connection
+        try {
+            console.log("Calling getConnection with connection id", id);
+            connectionContract = await getConnectionWithTimeout(id);
+        } catch (e) {
+            console.log(e.message || e.toString());
+            continue;
+        }
+
+        // console.log("Sending Message to contact with connection id", id);
+        // try {
+        //     const params =
+        //     {
+        //         "connectionId": id,
+        //         "text": "A person has tested positive who was at a venue where you were present within the last 3 days. You should self-isolate for 14 days. Only consider a test if you develop symptoms."
+        //     };
+        //     const resp = await client.sendMessage(params);
+        //     console.log("-------> Message sent to user agents !");
+        // } catch (e) {
+        //     console.log(e.message || e.toString());
+        //     continue;
+        // }       
+
+       
+        var params =
+        {
+            definitionId: process.env.NHS_TEXT_ALERT_ID,
+            connectionId: id,
+            credentialValues: {
+                "Message Text": "A person has tested positive who was at a venue where you were present within the last 3 days. You should self-isolate for 14 days. Only consider a test if you develop symptoms.",
+                "Message Date": d.toString()
+            }
+        }
+        console.log("issue credential with connection id " + connId + " params = ", params);
+
+        await client.createCredential(params);
+    }
+    res.status(200).send();
+});
+
 app.post('/api/acme/revoke', cors(), async function (req, res) {
     console.log("revoking acme credential, id = ", acmeCredentialId);
     await client.revokeCredential(acmeCredentialId);
     console.log("ACME Credential revoked!");
 
-    console.log("++++ SEND MESSAGE WITH CONNECTION ID ", connId);
     const params =
     {
         basicMessageParameters: {
@@ -367,7 +410,7 @@ app.post('/api/acme/revoke', cors(), async function (req, res) {
             "text": "Acme credential has been revoked. You may want to delete this from your wallet."
         }
     };
-    const resp = await client.sendMessage(params);
+    const resp = await client.sendMessage()
 
     console.log("------- Message sent to user's agent !");
 

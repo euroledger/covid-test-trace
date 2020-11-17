@@ -66,7 +66,12 @@ const traceRoutes = {
     async searchForVisitsUsingIdAndDate(url, venueid, date) {
         const query = `${url}/visit?restaurantid=${venueid}&visitdate=${date}`;
         return await axios.get(query);
+    },
+
+    async sendMessages(connectionIds) {
+        await axios.post('/api/sendmessages', connectionIds);
     }
+
 };
 
 export default traceRoutes;
