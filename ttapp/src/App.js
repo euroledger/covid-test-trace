@@ -4,6 +4,8 @@ import patientItems from './components/Fields/patient';
 import visitItems from './components/Fields/visit';
 import resultItems from './components/Fields/result';
 import matcherItems from './components/Fields/matcher';
+import vaccineItems from './components/Fields/vaccine';
+import immunityItems from './components/Fields/immunity'
 import RestaurantRegistrationDialog from './components/RestaurantRegistrationDialog';
 import NHSRegistrationDialog from './components/NHSRegistrationDialog';
 import NavBar from './components/NavBar';
@@ -21,23 +23,23 @@ import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import axios from 'axios';
+import _ from 'lodash';
 import QRcode from 'qrcode.react';
 import traceRoutes from './routes/traceRoutes';
 import signInRoutes from './routes/signInRoutes';
 import LoginDialog from './components/LoginDialog';
 import utilities from './utils';
+import utils from './utils';
 
 axios.defaults.baseURL = 'http://localhost:3002/';
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
 axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
 
-const r = Math.random().toString(26).substring(2, 4).toUpperCase();
-
 const NHS_KEY = '281c4bae-bf10-4496-a7d0-706ddf5a15b5';
+const NHS_NAME = 'Alice Richardson';
+const VACCINE_ID = "SARS-CoV-2-" + Math.floor(1000000 + Math.random() * 9000000).toString();
+
 const JSON_SERVER_URL = 'http://localhost:3004';
-
-const invoiceNumber = r + Math.floor(1000 + Math.random() * 9000).toString();
-
 
 const muiTheme = createMuiTheme({
     typography: {
@@ -56,7 +58,8 @@ const initState = {
         restaurantid: -1,
         visitdate: "",
         visittimein: "",
-        visittimeout: ""
+        visittimeout: "",
+        key_received: false,
     },
     patient: {
         // patientid: "123456", // temporary for testing
@@ -79,11 +82,16 @@ const initState = {
         requesting_patient_key: false,
         certificate_issued: false,
         revoked: false,
+        awaiting_revoke: false,
         credential_accepted: true
     },
     matcher: {
-        nhsappkey: NHS_KEY,
+        nhsappkey: NHS_KEY, // for testing
+        // nhsappkey: "",
+        patientname: NHS_NAME,
         ready_to_send_message: false,
+        messages_sent: false,
+        displayRows: [], // contains the duplicates for demo purposes
         rows: [
             // {
             //     nhsappkey: '281c4bae-bf10-4496-a7d0-706ddf5a15b5',
@@ -94,7 +102,33 @@ const initState = {
             // }
         ],
     },
+    vaccine: {
+        patientid: '',
+        patientname: '',
+        vaxid: '',
+        testcentre: '',
+        vaxdate: '',
+        vaxtype: '',
+        key: '',
+        ready_to_issue_vaccine: false,
+        vaccine_certificate_accepted: true,
+        revoked: false
+    },
 
+    immunity: {
+        restaurantname: '',
+        patientname: '',
+        immunitytype: '',
+        certificatetype: '', // eg SARS-COVID-2, or type of vaccine
+        immunitydate: '',
+        testcentre: '',
+        immunityreference: '',
+        immunity_certificate_accepted: true,
+        revoked: false,
+        done: false,
+    },
+
+    display_ad: true,
     collapse_open: false,
     qr_open: false,
     welcome_open: true,
@@ -162,11 +196,27 @@ export class App extends Component {
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, verification_received: false }
         }));
-        await this.onRequestNHSPatientData("patient");
+        let resp = await this.onRequestNHSPatientData("patient");
+
+        let certificate_issued = resp.data.testData != undefined;
+        let result = "";
+        if (certificate_issued) {
+            result = resp.data.testData["Test Result"].toUpperCase();
+        }
+
         this.setState(prevState => ({
-            restaurant: { ...prevState.restaurant, verification_received: true }
+            restaurant: { ...prevState.restaurant, verification_received: true },
+            vaccine: { ...prevState.vaccine, ready_to_issue_vaccine: true },
+            result: { ...prevState.result, certificate_issued: certificate_issued, testresult: result }
         }));
 
+    }
+    onRevokeTestCertificate = async () => {
+        await traceRoutes.revokeTestCertificate();
+
+        this.setState(prevState => ({
+            result: { ...prevState.result, awaiting_revoke: true, revoked: true }
+        }));
     }
 
     onIssueTestCertificate = async () => {
@@ -254,29 +304,137 @@ export class App extends Component {
     }
 
     dateInRange = (from, to, check) => {
-        // console.log("FROM = ", from, "; TO = ", to, "; CHECK = ", check);
-        // console.log("check.getTime = ", check.getTime(), "from.getTime = ", from.getTime(), " result = ", check.getTime() > from.getTime());
-
-        // console.log("check.getTime = ", check.getTime(), "to.getTime = ", to.getTime(), " result = ", check.getTime() < to.getTime());
-
         const aRes = check.getTime() > from.getTime();
         const bRes = check.getTime() < to.getTime();
-        ; if (aRes && bRes) {
+        if (aRes && bRes) {
             return true;
         }
         return false;
     }
 
     sendMessagesToContacts = async () => {
-        const ids = this.state.matcher.rows.map(a => a.nhsappkey);
-        const resp = await traceRoutes.sendMessages(ids); 
+        const messages = this.state.matcher.rows.map(a => ({ id: a.nhsappkey, message: a.message }));
+
+        const resp = await traceRoutes.sendMessages(messages);
+
+        this.setState(prevState => ({
+            restaurant: { ...prevState.restaurant, loading: false },
+            matcher: { ...prevState.matcher, messages_sent: true }
+        }));
+    }
+
+    onVaccinationTEST = async () => {
+        if (!this.state.vaccine.ready_to_issue_vaccine) {
+            const name = sessionStorage.getItem("name");
+            const d = new Date();
+            this.setState(prevState => ({
+                restaurant: { ...prevState.restaurant, loading: false },
+                vaccine: {
+                    ...prevState.vaccine, patientid: '123456',
+                    patientname: NHS_NAME,
+                    vaxid: VACCINE_ID,
+                    testcentre: name,
+                    vaxdate: utils.formatDate(d),
+                    key: NHS_KEY,
+                    ready_to_issue_vaccine: true
+                }
+            }));
+            this.setState(prevState => ({
+                vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: false }
+            }));
+            return;
+        }
+
+        const resp = await traceRoutes.issueVaccineCertificate(this.state.vaccine);
+        this.setState(prevState => ({
+            vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: true }
+        }));
+        this.clearVaccineForm();
+    }
+    onVaccination = async () => {
+
+        if (!this.state.vaccine.ready_to_issue_vaccine) {
+            this.setState(prevState => ({
+                vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: false }
+            }));
+            await this.getPatientData();
+
+            return;
+        }
+        this.setState(prevState => ({
+            vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: false }
+        }));
+        const resp = await traceRoutes.issueVaccineCertificate(this.state.vaccine);
+        this.setState(prevState => ({
+            vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: true }
+        }));
+        this.clearVaccineForm();
+    }
+
+    onImmunity = async () => {
+        if (this.state.immunity.done) {
+            this.clearImmunityForm();
+            return;
+        }
+        // positive is +ve test certificate or antibdy
+        const certificate = this.state.immunity.immunitytype === "VACCINE CERTIFICATE" ? "vaccine" : "positive";
+        this.setState(prevState => ({
+            immunity: { ...prevState.immunity, immunity_certificate_accepted: false }
+        }));
+
+        let resp = await traceRoutes.requestVaccinationCertificate(certificate);
+        this.setState({
+            invite_url: resp.data.login_request_url
+        });
+
+        this.setQRFormOpen(true);
+
+        resp = await traceRoutes.waitForVerificationReceived();
+
+        this.setQRFormOpen(false);
+
+
+        console.log("BARK resp = ", resp);
+        this.setState(prevState => ({
+            immunity: {
+                ...prevState.immunity, immunity_certificate_accepted: true,
+                patientname: resp.data.name,
+                certificatetype: resp.data.type,
+                immunitydate: resp.data.date,
+                testcentre: resp.data.centre,
+                immunityreference: resp.data.certificateId,
+                revoked: !resp.data.isValid,
+                done: true
+            }
+        }));
+    }
+
+    getMessage = (visitdate) => {
+        return `A person has tested positive for COVID-19 who was at a venue where you were present on ${visitdate}. You should self-isolate for a further ${this.getSelfIsolationDays(visitdate)} days. Only consider a test if you develop symptoms.`
+    }
+
+    getSelfIsolationDays = (visitdate) => {
+        // calc the self-isolation days => 14 - (days between visit date and today)
+        const diffInMs = new Date - new Date(visitdate)
+        const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+        return Math.round(14 - diffInDays);
     }
 
     onSearch = async () => {
         if (this.state.matcher.ready_to_send_message) {
+            this.setState(prevState => ({
+                restaurant: { ...prevState.restaurant, loading: true },
+            }));
             return await this.sendMessagesToContacts();
         }
-        
+
+        if (this.state.matcher === "") {
+            this.setState(prevState => ({
+                matcher: { ...prevState.matcher, nhsappkey: this.state.patient.testandtracekey, patientname: this.state.patient.patientname }
+            }));
+        }
+
+
         // 1. search for visits
         const resp = await traceRoutes.searchForVisitsUsingKey(JSON_SERVER_URL, this.state.matcher.nhsappkey);
 
@@ -294,10 +452,8 @@ export class App extends Component {
 
             // 4. search for all keyholders who visited that venue (as given by VenueId) on that date/time
             //  => first get all keyholders who visited that venue on that date
-            // console.log("QUACK thisInDate = ", thisInDate, " thisOutDate = ", thisOutDate);
 
             const visitResp = await traceRoutes.searchForVisitsUsingIdAndDate(JSON_SERVER_URL, venueId, visitDate);
-            // console.log("visits = ", visitResp.data);
 
             //  => then filter out any visits that fall outside the timeIn -> timeOut duration of visit
             let parent = this;
@@ -311,14 +467,28 @@ export class App extends Component {
                     || parent.dateInRange(thisInDate, thisOutDate, outDate);
             });
 
-            console.log("FILTERED VISITS = ", filteredVisits);
+            filteredVisits = filteredVisits.map(obj => ({ ...obj, message: this.getMessage(obj.visitdate) }))
+
             aggregateVisits = aggregateVisits.concat(filteredVisits);
         }
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, loading: true }
         }));
 
-        //        5. Display the list of keyholders and visit data on screen
+        // filter out duplicates (should get the most recent contact where there are multiple)
+        let filteredAggregateVisits = _.uniqBy(aggregateVisits.reverse(), function (e) {
+            return e.nhsappkey;
+        });
+
+        filteredAggregateVisits = filteredAggregateVisits.reverse();
+
+        // filter out the current user (we don't want to send a message to the patient who tested positive to self-isolate!)
+        const thiskey = this.state.matcher.nhsappkey;
+        filteredAggregateVisits = filteredAggregateVisits.filter(function (item) {
+            return item.nhsappkey != thiskey;
+        });
+
+        // 6. Display the list of keyholders and visit data on screen
         // the state change loads the results from the queries into the rows object for the table component to display
 
         setTimeout(() => {
@@ -327,38 +497,38 @@ export class App extends Component {
                 matcher: {
                     ...prevState.matcher,
                     ready_to_send_message: true,
-                    rows: aggregateVisits
+                    rows: filteredAggregateVisits,
+                    displayRows: aggregateVisits
                 }
             }));
         }, 2000);
-       
-        // 6. Send a message to all keyholders using the key as the connection id
+    }
 
+    clearVaccineForm = () => {
+        this.setState({
+            vaccine: initState.vaccine
+        });
+    }
 
+    clearImmunityForm = () => {
+        this.setState({
+            immunity: initState.immunity
+        });
     }
 
     clearVisitForm = () => {
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: false },
-            visit: {
-                ...prevState.visit,
-
-                nhsappkey: "",
-                restaurantname: "",
-                restaurantid: "",
-                visitdate: "",
-                visittimein: "",
-                visittimeout: ""
-            }
+            visit: initState.visit
         }));
     }
+
+
     saveVisitData = async () => {
         this.startLoader();
-        console.log("QUACK saving...");
         setTimeout(() => {
             this.stopLoader();
             this.clearVisitForm();
-            console.log("QUACK DONE...")
         }, 2000);
         const json = JSON.stringify(this.state.visit);
         await traceRoutes.saveVisitData(JSON_SERVER_URL, json);
@@ -398,17 +568,29 @@ export class App extends Component {
 
             resp = await traceRoutes.waitForVerificationReceived();
 
-            console.log("Proof request ok! key = ", resp.data.nhskey);
-
             this.setQRFormOpen(false);
+
+            const name = sessionStorage.getItem("name");
+            const d = new Date();
+
 
             this.setState(prevState => ({
                 restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: true, credential_accepted: true },
-                visit: { ...prevState.visit, nhsappkey: resp.data.nhskey },
-                result: { ...prevState.result, patientid: resp.data.id, patientname: resp.data.name, ready_to_issue_certificate: true, requesting_patient_data: false, requesting_patient_key: false }
+                result: { ...prevState.result, patientid: resp.data.id, patientname: resp.data.name, ready_to_issue_certificate: true, requesting_patient_data: false, requesting_patient_key: false },
+                patient: { ...prevState.patient, patientid: resp.data.id, patientname: resp.data.name, testandtracekey: resp.data.nhskey },
+                vaccine: {
+                    ...prevState.vaccine, patientid: resp.data.id, patientname: resp.data.name, testcentre: name, vaxdate: utils.formatDate(d), vaxid: VACCINE_ID, key: resp.data.nhskey
+                },
+                immunity: {
+                    ...prevState.immunity, key: resp.data.nhskey
+                },
+                visit: { ...prevState.visit, key_received: true }
             }));
 
+
+
             this.setFields(resp.data.nhskey);
+            return resp;
         }
     }
 
@@ -424,10 +606,27 @@ export class App extends Component {
 
     setResultFieldValue = (event) => {
         const { target: { name, value } } = event;
-        console.log("QUACK : name = ", name, " value  ", value);
         this.setState(prevState => ({
             result: {
                 ...prevState.result, [name]: value
+            }
+        }));
+    }
+
+    setVaccineFieldValue = (event) => {
+        const { target: { name, value } } = event;
+        this.setState(prevState => ({
+            vaccine: {
+                ...prevState.vaccine, [name]: value
+            }
+        }));
+    }
+
+    setImmunityFieldValue = (event) => {
+        const { target: { name, value } } = event;
+        this.setState(prevState => ({
+            immunity: {
+                ...prevState.immunity, [name]: value
             }
         }));
     }
@@ -496,7 +695,6 @@ export class App extends Component {
         catch (e) {
             console.log(e);
         }
-        console.log("QUACK key = ", resp.data.key);
         this.setState(prevState => ({
             invite_url: resp.data.invite_url,
             patient: { ...prevState.patient, testandtracekey: resp.data.key }
@@ -583,6 +781,11 @@ export class App extends Component {
             // }));
 
             sessionStorage.setItem("name", form.restaurantname);
+            this.setState(prevState => ({
+                immunity: {
+                    ...prevState.immunity, restaurantname: form.restaurantname
+                },
+            }));
             this.setLoginDetails("restaurant");
             this.registerRestaurantFormOpen(false);
             this.stopLoader();
@@ -638,6 +841,9 @@ export class App extends Component {
             this.setState(prevState => ({
                 visit: {
                     ...prevState.visit, restaurantname: res.data[0].restaurantname, restaurantid: res.data[0].id
+                },
+                immunity: {
+                    ...prevState.immunity, restaurantname: res.data[0].restaurantname
                 },
                 login_form_open: false,
                 login: true,
@@ -715,17 +921,37 @@ export class App extends Component {
     }
 
     getRevokeCertificateLabel() {
-        return (!this.state.result.revoked ? "Revoke Test Certificate" : "Awaiting Acceptance...");
+        if (this.state.result.revoked) {
+            return "Clear Form";
+        }
+        return (!this.state.result.awaiting_revoke ? "Revoke Test Certificate" : "Awaiting Confirmation...");
     }
 
     getVisitLabel() {
         if (this.state.restaurant.ready_to_issue_visit) {
             return "Save Visit Data";
         }
-        return (this.state.restaurant.nhs_key_received ? "Request Test & Trace Key" : "Awaiting Verification...");
+        return (this.state.restaurant.nhs_key_received ? "Check In Customer" : "Awaiting Verification...");
+    }
+
+    getVaccineLabel() {
+        if (this.state.vaccine.ready_to_issue_vaccine) {
+            return this.state.vaccine.vaccine_certificate_accepted ? "Issue Vaccine Credential" : "Awaiting Verification";
+        }
+        return this.state.restaurant.verification_received ? "Request Patient Data" : "Awaiting Verification...";
+    }
+
+    getImmunityLabel() {
+        if (this.state.immunity.done) {
+            return "Clear Form";
+        }
+        return (this.state.immunity.immunity_certificate_accepted ? "Request Immunity Certificate" : "Awaiting Verification...");
     }
 
     getSearchLabel() {
+        if (this.state.matcher.messages_sent) {
+            return "Clear Form";
+        }
         return (!this.state.matcher.ready_to_send_message ? "Search Patients" : "Send Notification To Matched Patients");
     }
 
@@ -738,6 +964,9 @@ export class App extends Component {
     }
 
     getTestLabel() {
+        if (this.state.result.revoked) {
+            return "Clear Form";
+        }
         return (this.state.result.credential_accepted ? "Issue Test Certificate" : "Awaiting Acceptance...");
     }
 
@@ -749,11 +978,19 @@ export class App extends Component {
         return (this.state.patient.patientid === '' || this.state.patient.patientname === '');
     }
 
+    getVaccineDisabled() {
+        return !this.state.vaccine.vaccine_certificate_accepted || (this.state.vaccine.ready_to_issue_vaccine && this.state.vaccine.vaxtype === '');
+    }
+
+    getImmunityDisabled() {
+        return !this.state.immunity.immunity_certificate_accepted || this.state.immunity.immunitytype === '';
+    }
+
     getResultDisabled() {
         return this.state.result.testresult === '';
     }
     getVisitDisabled() {
-        return false; // for now
+        return this.state.key_received && this.state.visit.visittimeout === '';
     }
 
     // getClaimDisabled(platform) {
@@ -781,7 +1018,7 @@ export class App extends Component {
                     </Button>
                 </div>
             )
-        } else if (!this.state.result.certificate_issued) {
+        } else if (!this.state.result.certificate_issued || this.state.result.revoked) {
             return (
                 <div style={{ marginTop: '15px', marginBottom: '20px' }}>
                     <Button className="registerbutton" disabled={this.getResultDisabled()}
@@ -794,7 +1031,7 @@ export class App extends Component {
             return (
                 <div style={{ marginTop: '15px', marginBottom: '20px' }}>
                     <Button className="revokebutton" disabled={false}
-                        onClick={() => this.onReimburse()} >
+                        onClick={() => this.onRevokeTestCertificate()} >
                         {this.getRevokeCertificateLabel()}
                     </Button>
                 </div>
@@ -826,6 +1063,35 @@ export class App extends Component {
                     }
                 >
                     {this.getSearchLabel()}
+                </Button>
+            </div>
+        )
+    }
+
+    vaccineButton() {
+        return (
+            <div style={{ marginTop: '10px', marginBottom: '-10px' }}>
+                <Button className="registerbutton" disabled={this.getVaccineDisabled()}
+                    onClick={() =>
+                        // this.onVaccinationTEST()
+                        this.onVaccination()
+                    }
+                >
+                    {this.getVaccineLabel()}
+                </Button>
+            </div>
+        )
+    }
+
+    immunityButton() {
+        return (
+            <div style={{ marginTop: '10px', marginBottom: '-10px' }}>
+                <Button className="registerbutton" disabled={this.getImmunityDisabled()}
+                    onClick={() =>
+                        this.onImmunity()
+                    }
+                >
+                    {this.getImmunityLabel()}
                 </Button>
             </div>
         )
@@ -927,7 +1193,6 @@ export class App extends Component {
         var d = new Date();
         const testdate = utilities.formatDate(d, 0);
 
-        console.log("QUACK certificate id = ", certificateId);
         this.setState(prevState => ({
             result: {
                 ...prevState.result,
@@ -936,7 +1201,7 @@ export class App extends Component {
                 certificateid: certificateId,
                 testcentre: name,
 
-                testtype: "COVID-19 UK",
+                testtype: "COVID-19 PCR",
                 testdate: testdate
             }
         }));
@@ -946,6 +1211,9 @@ export class App extends Component {
             collapse_open: false
         });
     }
+
+
+
 
     render() {
 
@@ -959,7 +1227,6 @@ export class App extends Component {
                 'aria-controls': `simple-tabpanel-${index}`,
             };
         }
-
 
 
         const getTabDisplay = () => {
@@ -986,10 +1253,9 @@ export class App extends Component {
             if (this.state.login_type === "nhs") {
                 return (
                     <>
-                        <Tabs
+                        <Tabs style={{ backgroundColor: 'white', opacity: 0.7 }}
                             value={this.state.value}
                             onChange={this.handleChange}
-
                             initialSelectedIndex="1"
                             centered
                         >
@@ -997,8 +1263,9 @@ export class App extends Component {
                             <Tab label="Register New Patient" {...a11yProps(0)} />
                             <Tab label="Enter Covid Test Results" {...a11yProps(1)} />
                             <Tab label="Patient Trace" {...a11yProps(2)} />
+                            <Tab label="Covid Vaccination" {...a11yProps(3)} />
                         </Tabs>
-                        <TabPanel value={this.state.value} index={0}>
+                        <TabPanel style={{ zIndex: 101 }} value={this.state.value} index={0}>
                             <Form
                                 parent={this}
                                 items={patientItems}
@@ -1029,12 +1296,22 @@ export class App extends Component {
                                 rows={this.state.matcher.rows}>
                             </Form>
                         </TabPanel>
+                        <TabPanel value={this.state.value} index={3}>
+                            <Form
+                                parent={this}
+                                items={vaccineItems}
+                                loading={this.state.restaurant.loading}
+                                card={this.state.vaccine}
+                                title={"Enter Vaccination Details"}
+                                action={"vaccine"}>
+                            </Form>
+                        </TabPanel>
                     </>
                 );
             } else {
                 return (
                     <>
-                        <Tabs
+                        <Tabs style={{ backgroundColor: 'white', opacity: 0.7 }}
                             value={this.state.value}
                             onChange={this.handleChange}
 
@@ -1042,8 +1319,8 @@ export class App extends Component {
                             centered
                         >
 
-                            <Tab label="Receive New Customer" {...a11yProps(0)} />
-                            <Tab label="Request Covid Certificate" {...a11yProps(1)} />
+                            <Tab label="Customer Check-In" {...a11yProps(0)} />
+                            <Tab label="Request Immunity Certificate" {...a11yProps(1)} />
                         </Tabs>
                         <TabPanel value={this.state.value} index={0}>
                             <Form
@@ -1058,11 +1335,11 @@ export class App extends Component {
                         <TabPanel value={this.state.value} index={1}>
                             <Form
                                 parent={this}
-                                items={visitItems}
+                                items={immunityItems}
                                 loading={this.state.restaurant.loading}
-                                card={this.state.visit}
-                                title={"Request Covid Test Certificate"}
-                                action={"visit"}>
+                                card={this.state.immunity}
+                                title={"Request Covid Immunity Certificate"}
+                                action={"immunity"}>
                             </Form>
                         </TabPanel>
                     </>
@@ -1072,7 +1349,7 @@ export class App extends Component {
 
         return (
             <ThemeProvider muiTheme={muiTheme} >
-                <div >
+                <div style={{ width: 'calc(100vw - 1px)' }}>
                     <GlobalCss></GlobalCss>
                     <NavBar parent={this}></NavBar>
 
@@ -1082,9 +1359,9 @@ export class App extends Component {
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center center",
                         backgroundSize: "cover",
-                        backgroundAttachment: "fixed",
+                        // backgroundAttachment: "fixed",
                         backgroundColor: 'rgba(10, 10, 10, 0.5)',
-                        flexGrow: 1
+                        // flexGrow: 1
                     }}>
                         <WelcomeDialog
                             welcome_open={this.state.welcome_open}
@@ -1116,6 +1393,12 @@ export class App extends Component {
                         <DialogTitle style={{ width: "300px" }}>{this.getQRCodeLabel()}</DialogTitle>
                         <QRcode size="200" value={this.state.invite_url} style={{ margin: "0 auto", padding: "10px" }} />
                     </Dialog>
+                    <div style={{ zIndex: 100, textAlign: 'center', background: 'white', minWidth: '140px', minHeight: '50px', position: 'absolute', position: "fixed", top: '89%', left: '87%' }}>
+                        <div>
+                            Powered By
+                        </div>
+                        <img height="30" width="100" src="trinsic.png" alt="Trinsic"></img>
+                    </div>
                 </div >
             </ThemeProvider >
         )

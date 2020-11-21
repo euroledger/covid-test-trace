@@ -42,7 +42,7 @@ const NavBar = ({ parent }) => {
             <Toolbar style={{ backgroundColor: getBackgroundColor() }}>
                 <img style={{ maxHeight: '40px', paddingRight: '30px' }} src="EL2.jpg" alt="logo" />
                 <Typography variant="h6">
-                    EuroLedger Covid Test &amp; Trace Demo
+                    EuroLedger Covid Test, Trace &amp; Vaccine Demo
                 </Typography>
                 <div style={{ flexGrow: 1, textAlign: 'center' }}>
                     {getLogo()}

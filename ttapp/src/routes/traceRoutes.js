@@ -3,7 +3,14 @@ import axios from 'axios';
 const traceRoutes = {
     async issueTestCertificate(testDetails) {
         await axios.post('/api/testresult/issue', testDetails);
-        console.log("WAITING FOR CREDENIAL ACCEPTANCE...");
+        console.log("WAITING FOR CREDENTIAL ACCEPTANCE...");
+        await axios.post('/api/credential_accepted', null);
+
+        console.log("READY!");
+    },
+    async issueVaccineCertificate(vaccinationDetails) {
+        await axios.post('/api/vaccination/issue', vaccinationDetails);
+        console.log("WAITING FOR CREDENTIAL ACCEPTANCE...");
         await axios.post('/api/credential_accepted', null);
 
         console.log("READY!");
@@ -11,8 +18,9 @@ const traceRoutes = {
     async revoke() {
         await axios.post('/api/hospital/revoke', null);
     },
-    async verifyNHSKey() {
-        return await axios.post('/api/verifynhskey', null);
+    async verifyNHSKey(immunity) {
+        console.log(">>>> Going across to server");
+        return await axios.post('/api/verifynhskey', {immunityType: immunity});
     },
 
     async verifyNHSPatient() {
@@ -21,6 +29,18 @@ const traceRoutes = {
     
     async waitForVerificationReceived() {
         return await axios.get('/api/verificationreceived');
+    },
+
+    async requestVaccinationCertificate(certificate) {
+        if (certificate === "vaccine") {
+            return await axios.post('/api/verifyvaccinationcertificate', null);
+        }else {
+            return await axios.post('/api/verifypositivetestcertificate', null);
+        }
+    },
+
+    async revokeTestCertificate() {
+        await axios.post('/api/revokecertificate', null);
     },
 
     async issueNHSPatient(patientDetails) {

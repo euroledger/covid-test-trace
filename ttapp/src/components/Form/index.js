@@ -8,7 +8,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Table from '../Table';
-import GlobalCss from '../Global';
+import './form.css';
 import Spinner from '../Spinner';
 
 const Form = ({ parent, items, loading, card, title, action, rows }) => {
@@ -40,13 +40,17 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
             return parent.visitButton();
         } else if (action === "matcher") {
             return parent.matcherButton();
+        } else if (action === "vaccine") {
+            return parent.vaccineButton();
+        } else if (action === "immunity") {
+            return parent.immunityButton();
         }
     }
 
     const getLogo = () => {
         if (action === "visit") {
             return (
-                <img style={{ marginLeft: '199px', height: '107px', width: '149px', marginBottom: '24px' }} src='food.jpg' alt="" />
+                <img style={{ marginLeft: '202px', height: '107px', width: '149px', marginBottom: '24px' }} src='food.jpg' alt="" />
             )
         }
         else if (action === "patient") {
@@ -64,7 +68,16 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
                 <img style={{ marginLeft: '514px', height: '98px', width: '165px' }} src='trace.jpg' alt="" />
             )
         }
-
+        else if (action === "vaccine") {
+            return (
+                <img style={{ marginLeft: '165px', height: '98px', width: '165px' }} src='nurse.jpg' alt="" />
+            )
+        }
+        else if (action === "immunity") {
+            return (
+                <img style={{ marginLeft: '165px', height: '98px', width: '165px' }} src='immunity.jpg' alt="" />
+            )
+        }
     }
 
     const getDivStyle = () => {
@@ -76,13 +89,16 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
     }
 
     const setFieldValue = (event) => {
-        console.log("action = ", action);
         if (action === "patient") {
             parent.setPatientFieldValue(event);
         } else if (action === "result") {
             parent.setResultFieldValue(event);
         } else if (action === "visit") {
             parent.setVisitFieldValue(event);
+        } else if (action === "vaccine") {
+            parent.setVaccineFieldValue(event);
+        } else if (action === "immunity") {
+            parent.setImmunityFieldValue(event);
         }
     }
 
@@ -90,13 +106,13 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
 
     const getMenuItems = (menuItems) => {
         return menuItems.map(item =>
-            <MenuItem value={item.replace(' ', '').toLowerCase()}>{item}</MenuItem>
+            <MenuItem value={item}>{item}</MenuItem>
         )
     }
 
     const getWidth = () => {
         if (action === "matcher") {
-            return '900px';
+            return '830px';
         }
         return '650px';
     }
@@ -105,6 +121,13 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
             return '700px';
         }
         return 'auto';
+    }
+
+    const getRevoked = () => {
+        if (action != "immunity") {
+            return "none";
+        }
+        return card.revoked ? "block" : "none";
     }
 
     const getFields = () => {
@@ -137,6 +160,7 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
             }
         });
     }
+   
     return (
         <div style={{ display: 'flex', justifyContent: 'center', height: getHeight(), opacity: 0.9 }}>
             <Paper style={{ display: 'flex', maxWidth: '1000px', width: getWidth() }}>
@@ -156,6 +180,7 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
 
                     <Spinner active={loading}></Spinner>
                     {getFields()}
+                    <div style={{ display: getRevoked() }} className="revoke">REVOKED</div>
                     {getTable()}
                     {getButton()}
                 </div>

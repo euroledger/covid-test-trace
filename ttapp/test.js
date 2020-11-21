@@ -17,7 +17,6 @@ getVenueData = async () => {
 }
 
 generateKey = () => {
-    // cb01c342-11b9-4687-b0de-22e93da99031
     return crypto.randomBytes(4).toString('hex') + "-" + crypto.randomBytes(2).toString('hex') + "-"  + crypto.randomBytes(2).toString('hex') + "-" + crypto.randomBytes(2).toString('hex') + "-" + crypto.randomBytes(6).toString('hex');
 }
 

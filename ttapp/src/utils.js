@@ -17,6 +17,9 @@ const formatTime = (d, addHours) => {
 }
 
 const formatDate = (date, addYears) => {
+    if (addYears === undefined) {
+        addYears = 0;
+    }
     var d = new Date(date),
         month = '' + (d.getMonth() + 1), // add 1 as January = 0
         day = '' + d.getDate(),

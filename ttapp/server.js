@@ -14,6 +14,7 @@ const debug = require('debug')('tmp:server');
 var fs = require('fs');
 var https = require('https');
 let keydata;
+let immunedata;
 
 require('dotenv').config();
 
@@ -44,7 +45,7 @@ app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname, '/build/index.html'));
 });
 
-let acmeCredentialId;
+let credentialId;
 let connId;
 let registered = false;
 let loginConfirmed = false;
@@ -100,9 +101,9 @@ app.post('/webhook', async function (req, res) {
             console.log("cred request notif");
             // if (connected) {
 
-            nshCredentialId = req.body.object_id;
-            console.log("Issuing NHS credential to wallet, id = ", nshCredentialId);
-            await client.issueCredential(nshCredentialId);
+            credentialId = req.body.object_id;
+            console.log("Issuing credential to wallet, id = ", credentialId);
+            await client.issueCredential(credentialId);
 
             console.log("Credential Issue -> DONE");
             credentialAccepted = true;
@@ -117,8 +118,10 @@ app.post('/webhook', async function (req, res) {
 
             let proof = await client.getVerification(req.body.object_id);
 
-            console.log("Proof received; proof data = ", proof["proof"]);
+            console.log("Proof received; proof data = ", proof);
 
+            // note that isValid field in the proof is whether the proof request is valid or not
+            // this is set to false for revoked credentials
 
             if (template === "key") {
                 const data = proof["proof"]["NHS Proof of Key"]["attributes"];
@@ -129,9 +132,57 @@ app.post('/webhook', async function (req, res) {
                 };
                 connId = keydata.nhskey;
                 console.log(keydata);
+            } else if (template === "vaccine") {
+                const data = proof["proof"]["NHS Covid Vaccination Certificate"]["attributes"];
+
+                console.log("----------> received proof request data: ", data);
+                keydata = {
+                    certificateId: data["Certificate ID"],
+                    name: data["Patient Name"],
+                    date: data["Vaccination Date"],
+                    centre: data["NHS Vaccine Centre"],
+                    type: data["Vaccination Type"] + " Vaccine"
+                };
+            } else if (template === "positive") {
+                const data = proof["proof"]["NHS Covid Test Certificate"]["attributes"];
+
+                console.log("----------> received proof request data: ", data);
+                keydata = {
+                    certificateId: data["Certificate ID"],
+                    name: data["Patient Name"],
+                    date: data["Test Date"],
+                    centre: data["Test Centre"],
+                    type: data["Test Type"],
+                    result: data["Test Result"]
+                };
+
+                // HACK until i get proof of revocation working
+                // pull out all credentials 
+                // filter out the one with Certificate ID equal to the one above
+                // check  state
+
+                console.log("---------------- GET ALL CREDENTIALS FOR HACK-------------------");
+
+                // retreive all credentials for this id
+                let credentials = await client.listCredentials();
+                // var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
+                //     return credential.connectionId === keydata.nhskey;
+                // });
+
+                var issuedCredentialsForThisUser = credentials.filter(function (credential) {
+                    return credential.values["Certificate ID"] === keydata.certificateId;
+                });
+
+                if (issuedCredentialsForThisUser.length === 1) {
+                    console.log(">>>>>>>>>> CREDENIAL = ", issuedCredentialsForThisUser[0])
+                    if (issuedCredentialsForThisUser[0].state === "Revoked") {
+                        keydata.isValid = false;   
+                    }
+                } else {
+                    console.log(">>>>>>>>>> CREDENIAL NOT FOUND!");
+                }
             } else {
                 const data = proof["proof"]["NHS Verification"]["attributes"];
-
                 console.log("----------> received proof request data: ", data);
                 keydata = {
                     nhskey: data["NHS Test & Trace Key"],
@@ -140,6 +191,26 @@ app.post('/webhook', async function (req, res) {
                 };
                 connId = keydata.nhskey;
                 console.log(keydata);
+
+                // pass back test information if present
+
+                console.log("---------------- GET ALL CREDENTIALS -------------------");
+
+                // retreive all credentials for this id
+                let credentials = await client.listCredentials();
+                // var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
+                //     return credential.connectionId === keydata.nhskey;
+                // });
+
+                var issuedCredentialsForThisUser = credentials.filter(function (credential) {
+                    return credential.state === "Issued" && credential.connectionId === keydata.nhskey && credential.values["Test Result"] != undefined;
+                });
+                if (issuedCredentialsForThisUser.length >= 1) {
+                    keydata.testData = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].values;
+                    credentialId = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].credentialId;
+                }
+
+                console.log("CREDENTIAL keydata = ", keydata);
             }
             verificationAccepted = true;
             // res.status(200).send();
@@ -205,6 +276,32 @@ app.post('/webhook', async function (req, res) {
     }
 });
 
+// const sendVaccinationCertificateVerification = async () => {
+//     const params =
+//     {
+//         "name": "Proof of Vaccination Certificate",
+//         "version": "1.0",
+//         "attributes": [
+//             {
+//                 "policyName": "Proof of Vaccination Certificate",
+//                 "attributeNames": [
+//                     "Certificate ID",
+//                     "Vaccination Date",
+//                     "NHS Vaccination Centre"
+//                 ],
+//                 "restrictions": null
+//             }
+//         ],
+//         "predicates": []
+//     }
+
+//     console.log("send verification request, connectionId = ", connId, "; params = ", params);
+//     const resp = await client.sendVerificationFromParameters(connId, params);
+// }
+
+// const sendCovidCertificateVerification = async () => {
+
+// }
 
 //FRONTEND ENDPOINTS
 
@@ -223,6 +320,34 @@ app.post('/api/patient/issue', cors(), async function (req, res) {
             }
         }
         console.log("issue credential with connection id " + connId + " params = ", params);
+
+        await client.createCredential(params);
+        console.log("----------------------> CREDENTIAL CREATED!");
+        res.status(200).send();
+    } else {
+        res.status(500).send("Not connected");
+    }
+});
+
+app.post('/api/vaccination/issue', cors(), async function (req, res) {
+
+    console.log("IN /api/vaccination/issue: attributes = ", req.body);
+    connId = req.body["key"];
+    if (connId) {
+        var params =
+        {
+            definitionId: process.env.CRED_DEF_ID_NHS_VACCINE_CERTIFICATE,
+            connectionId: connId,
+            credentialValues: {
+                "Patient Reference": req.body["patientid"],
+                "Patient Name": req.body["patientname"],
+                "Certificate ID": req.body["vaxid"],
+                "NHS Vaccine Centre": req.body["testcentre"],
+                "Vaccination Date": req.body["vaxdate"],
+                "Vaccination Type": req.body["vaxtype"]
+            }
+        }
+        console.log("issue covid vaccination certificate credential with connection id " + connId + " params = ", params);
 
         await client.createCredential(params);
         console.log("----------------------> CREDENTIAL CREATED!");
@@ -260,7 +385,52 @@ app.post('/api/testresult/issue', cors(), async function (req, res) {
     }
 });
 
+app.post('/api/verifyvaccinationcertificate', cors(), async function (req, res) {
+    template = "vaccine";
+    verificationAccepted = false;
+
+    const policyId = process.env.NHS_VACCINATION_CERTIFICATION_ID;
+    console.log("KEY: Create VACCINE CERTIFICATE verification for policy ", policyId);
+
+    const resp = await client.createVerificationFromPolicy(policyId);
+
+    console.log("resp = ", resp);
+
+    res.status(200).send({ login_request_url: resp.verificationRequestUrl });
+});
+
+app.post('/api/verifypositivetestcertificate', cors(), async function (req, res) {
+    template = "positive";
+    verificationAccepted = false;
+
+    let revocationRequirement = {
+        validAt: new Date() // Check if the credential is valid at the time of verification creation
+    };
+
+
+
+    const policyId = process.env.NHS_COVID_POSITIVE_TEST_CERTIFICATE_ID;
+    console.log("KEY: Create POSITIVE TEST CERTIFICATE verification for policy ", policyId);
+
+    // const resp = await client.createVerificationFromPolicy(policyId);
+    const resp = await client.createVerificationFromPolicy(policyId, {
+        revocationRequirement: revocationRequirement
+    });
+    console.log("resp = ", resp);
+
+    res.status(200).send({ login_request_url: resp.verificationRequestUrl });
+});
+
+
 app.post('/api/verifynhskey', cors(), async function (req, res) {
+    // console.log("req.body = ", req.body);
+    // if (req.body === "vaccine") {
+    //     template = "vaccine"
+    // } else if (req.body === "positive") {
+    //     template = "positive";
+    // } else {
+    //     template = "key";
+    // }
     template = "key";
     verificationAccepted = false;
 
@@ -287,6 +457,13 @@ app.post('/api/verifynhspatient', cors(), async function (req, res) {
 
     res.status(200).send({ login_request_url: resp.verificationRequestUrl });
 });
+
+// app.get('/api/immuneverificationreceived', cors(), async function (req, res) {
+//     console.log("Waiting for verification...");
+//     await utils.until(_ => immuneVerificationAccepted === true);
+
+//     res.status(200).send(immunedata);
+// });
 
 app.get('/api/verificationreceived', cors(), async function (req, res) {
     console.log("Waiting for verification...");
@@ -316,12 +493,29 @@ async function getConnectionWithTimeout(connectionId) {
             return res;
         });
 }
+app.post('/api/revokecertificate', cors(), async function (req, res) {
+    console.log("revoking credential, id = ", credentialId);
+    try {
+        await client.revokeCredential(credentialId);
+    }
+    catch (e) {
+        console.log(e.message || e.toString());
+    }
+    console.log("Credential revoked!");
+    res.status(200).send();
+});
 
 app.post('/api/login', cors(), async function (req, res) {
     // send connectionless proof request for user registration details
 
     const policyId = process.env.LOGIN_VERIF_ID;
-    const resp = await client.createVerificationFromPolicy(policyId);
+    let revocationRequirement = {
+        validAt: new Date() // Check if the credential is valid at the time of verification creation
+    };
+
+    const resp = await client.createVerificationFromPolicy(policyId, {
+        revocationRequirement: revocationRequirement
+    });
 
     console.log("resp = ", resp);
 
@@ -355,50 +549,32 @@ app.post('/api/connect', cors(), async function (req, res) {
 });
 
 app.post('/api/sendmessages', cors(), async function (req, res) {
-    let connectionIds = req.body;
+    let objects = req.body;
     const d = new Date();
-    for (id of connectionIds) {
-        // verify that the connection id is a valid connection
-        try {
-            console.log("Calling getConnection with connection id", id);
-            connectionContract = await getConnectionWithTimeout(id);
-        } catch (e) {
-            console.log(e.message || e.toString());
-            continue;
-        }
-
-        // console.log("Sending Message to contact with connection id", id);
-        // try {
-        //     const params =
-        //     {
-        //         "connectionId": id,
-        //         "text": "A person has tested positive who was at a venue where you were present within the last 3 days. You should self-isolate for 14 days. Only consider a test if you develop symptoms."
-        //     };
-        //     const resp = await client.sendMessage(params);
-        //     console.log("-------> Message sent to user agents !");
-        // } catch (e) {
-        //     console.log(e.message || e.toString());
-        //     continue;
-        // }       
-
-       
+    for (obj of objects) {
         var params =
         {
             definitionId: process.env.NHS_TEXT_ALERT_ID,
-            connectionId: id,
+            connectionId: obj.id,
             credentialValues: {
-                "Message Text": "A person has tested positive who was at a venue where you were present within the last 3 days. You should self-isolate for 14 days. Only consider a test if you develop symptoms.",
+                "Message Text": obj.message,
                 "Message Date": d.toString()
             }
         }
-        console.log("issue credential with connection id " + connId + " params = ", params);
-
-        await client.createCredential(params);
+        try {
+            client.createCredential(params);
+            console.log("SUCCESS! issued credential with connection id " + obj.id + " params = ", params);
+        }
+        catch (e) {
+            console.log(e.message || e.toString());
+            continue;
+        }
     }
     res.status(200).send();
 });
 
 app.post('/api/acme/revoke', cors(), async function (req, res) {
+    // 8db67fc2-90bd-45f2-89e2-09ef481bfdb1
     console.log("revoking acme credential, id = ", acmeCredentialId);
     await client.revokeCredential(acmeCredentialId);
     console.log("ACME Credential revoked!");

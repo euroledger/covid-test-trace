@@ -36,7 +36,7 @@ const resultItems = [
         menuItems: [
             "POSITIVE",
             "NEGATIVE",
-            "NO RESULT"
+            "ANTIBODY"
         ],
         disabled: false
     },

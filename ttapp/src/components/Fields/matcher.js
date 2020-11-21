@@ -1,7 +1,12 @@
 const matcherItems = [
     {
         id: "nhsappkey",
-        label: "Test & Trace App Key (This is the key identifying the patient that tested positive)",
+        label: "Test & Trace App Key",
+        disabled: true
+    },
+    {
+        id: "patientname",
+        label: "Full Name",
         disabled: true
     }
 ];

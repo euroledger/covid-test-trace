@@ -9,6 +9,9 @@ const GlobalCss = withStyles({
             color: 'black',
             fontWidth: 900
         },
+      
+        
+        // 
         '.MuiTab-wrapper': {
             color: 'black'
         },
@@ -26,7 +29,10 @@ const GlobalCss = withStyles({
         },
         'MuiPaper-rounded': {
             height: '500px'
-        }
+        },
+        'MuiTabs-fixed': {
+            backgroundColor: 'red'
+        },
     }
 
 

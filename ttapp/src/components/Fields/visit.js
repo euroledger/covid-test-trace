@@ -6,13 +6,13 @@ const visitItems = [
     },
     {
         id: "restaurantname",
-        label: "Restaurant",
+        label: "Venue",
         disabled: true
     },
     {
         id: "visitdate",
         label: "Visit Date",
-        disabled: true
+        disabled: false
     },
     {
         id: "visittimein",
