@@ -17,7 +17,7 @@ const visitItems = [
     {
         id: "visittimein",
         label: "Visit Time of Arrival",
-        disabled: true
+        disabled: false
     },
     {
         id: "visittimeout",

@@ -14,7 +14,8 @@ const immunityItems = [
         label: "Type of Certificate",
         type: "dropdown",
         menuItems: [
-            "POSITIVE COVID TEST",
+            "POSITIVE COVID TEST CERTIFICATE",
+            "NEGATIVE COVID FREEDOM PASS",
             "VACCINE CERTIFICATE",
             "ANTIBODY CERTIFICATE"
         ],

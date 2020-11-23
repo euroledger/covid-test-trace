@@ -35,7 +35,7 @@ axios.defaults.baseURL = 'http://localhost:3002/';
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=utf-8';
 axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
 
-const NHS_KEY = '281c4bae-bf10-4496-a7d0-706ddf5a15b5';
+const NHS_KEY = 'b490fb9b-d605-4568-88b8-42920c89b8f5';
 const NHS_NAME = 'Alice Richardson';
 const VACCINE_ID = "SARS-CoV-2-" + Math.floor(1000000 + Math.random() * 9000000).toString();
 
@@ -88,7 +88,7 @@ const initState = {
     matcher: {
         nhsappkey: NHS_KEY, // for testing
         // nhsappkey: "",
-        patientname: NHS_NAME,
+        patientname: "",
         ready_to_send_message: false,
         messages_sent: false,
         displayRows: [], // contains the duplicates for demo purposes
@@ -246,7 +246,8 @@ export class App extends Component {
 
     onIssuePatient = async () => {
         this.setState(prevState => ({
-            patient: { ...prevState.patient, credential_accepted: false }
+            patient: { ...prevState.patient, credential_accepted: false },
+            registering_nhs_patient: true
         }));
 
         await this.connect();
@@ -273,23 +274,48 @@ export class App extends Component {
         const name = sessionStorage.getItem("name");
         const id = sessionStorage.getItem("id");
         var d = new Date();
-        // const visitdate = utilities.formatDate(d, 0);
-        const visitdate = "2020-11-13"; // for testing
+        let visittimeout = this.state.visit.visittimeout;
+        let visitdate = this.state.visit.visitdate;
+        if (this.state.visit.visitdate === "") {
+            visitdate = utilities.formatDate(d, 0);
+        }
+        let visittime = this.state.visit.visittimein;
+        if (this.state.visit.visittimein === "") {
+            visittime = utilities.formatTime(d);
+        }
+        // const visitdate = "2020-11-13"; // for testing
         // const visittime = utilities.formatTime(d);
-        const visittime = "20:05:16"; // for testing
-
+        // const visittime = "1:05:16"; // for testing
+       
+        if (visittime.length === 5) {
+            visittime = visittime + ":00";
+        }
+        if (visittimeout.length === 5) {
+            visittimeout = visittimeout + ":00";
+        }
+        // if (this.state.visit.visittimeout.length === 5) {
+        //     const t = this.state.visit.visittimeout + ":00";
+        //     { ...prevState.visit, visittimeout: t }
+        //     }));
+        // }
+       
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: true },
             visit: {
                 ...prevState.visit,
-
                 nhsappkey: nhskey,
                 restaurantname: name,
                 restaurantid: id,
                 visitdate: visitdate,
-                visittimein: visittime
+                visittimein: visittime,
+                visittimeout: visittimeout
+            },
+            matcher: {
+                ...prevState.matcher,
+                nhsappkey: nhskey,
             }
         }));
+       
     }
 
     // test function when we don't want to do the proof request for the key
@@ -330,7 +356,8 @@ export class App extends Component {
             this.setState(prevState => ({
                 restaurant: { ...prevState.restaurant, loading: false },
                 vaccine: {
-                    ...prevState.vaccine, patientid: '123456',
+                    ...prevState.vaccine, 
+                    patientid: '123456',
                     patientname: NHS_NAME,
                     vaxid: VACCINE_ID,
                     testcentre: name,
@@ -358,13 +385,16 @@ export class App extends Component {
                 vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: false }
             }));
             await this.getPatientData();
-
+            this.setState(prevState => ({
+                vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: true }
+            }));
             return;
         }
         this.setState(prevState => ({
             vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: false }
         }));
         const resp = await traceRoutes.issueVaccineCertificate(this.state.vaccine);
+        console.log("QUACK ACCEPTED!");
         this.setState(prevState => ({
             vaccine: { ...prevState.vaccine, vaccine_certificate_accepted: true }
         }));
@@ -421,6 +451,10 @@ export class App extends Component {
     }
 
     onSearch = async () => {
+        if (this.state.matcher.messages_sent) {
+            this.clearSearchForm();
+            return;
+        }
         if (this.state.matcher.ready_to_send_message) {
             this.setState(prevState => ({
                 restaurant: { ...prevState.restaurant, loading: true },
@@ -447,6 +481,12 @@ export class App extends Component {
             // 3. pull out restaurant id, date and times of visit -> this is the target visit
             let venueId = visit.restaurantid
             let visitDate = visit.visitdate;
+            if (visit.visittimein.length === 5) {
+                visit.visittimein = visit.visittimein + ":00";
+            }
+            if (visit.visittimeout.length === 5) {
+                visit.visittimeout = visit.visittimeout + ":00";
+            }
             let thisInDate = new Date(visit.visitdate + " " + visit.visittimein);
             let thisOutDate = new Date(visit.visitdate + " " + visit.visittimeout);
 
@@ -471,6 +511,8 @@ export class App extends Component {
 
             aggregateVisits = aggregateVisits.concat(filteredVisits);
         }
+
+       
         this.setState(prevState => ({
             restaurant: { ...prevState.restaurant, loading: true }
         }));
@@ -498,16 +540,21 @@ export class App extends Component {
                     ...prevState.matcher,
                     ready_to_send_message: true,
                     rows: filteredAggregateVisits,
-                    displayRows: aggregateVisits
+                    displayRows: aggregateVisits.reverse()
                 }
             }));
         }, 2000);
     }
-
-    clearVaccineForm = () => {
+    clearSearchForm = () => {
         this.setState({
-            vaccine: initState.vaccine
+            matcher: initState.matcher
         });
+    }
+    clearVaccineForm = () => {
+        this.setState(prevState => ({
+            vaccine: initState.vaccine,
+            restaurant: { ...prevState.restaurant, nhs_key_received: true, ready_to_issue_visit: false } 
+        }));
     }
 
     clearImmunityForm = () => {
@@ -523,14 +570,17 @@ export class App extends Component {
         }));
     }
 
-
     saveVisitData = async () => {
+       
         this.startLoader();
         setTimeout(() => {
             this.stopLoader();
             this.clearVisitForm();
         }, 2000);
+
+        console.log("QUACK visit = ", this.state.visit);
         const json = JSON.stringify(this.state.visit);
+        
         await traceRoutes.saveVisitData(JSON_SERVER_URL, json);
     }
 
@@ -563,7 +613,6 @@ export class App extends Component {
                 console.log(e);
                 return;
             }
-
             this.setQRFormOpen(true);
 
             resp = await traceRoutes.waitForVerificationReceived();
@@ -584,7 +633,11 @@ export class App extends Component {
                 immunity: {
                     ...prevState.immunity, key: resp.data.nhskey
                 },
-                visit: { ...prevState.visit, key_received: true }
+                visit: { ...prevState.visit, key_received: true },
+                matcher: {
+                    ...prevState.matcher,
+                    patientname: resp.data.name,
+                }
             }));
 
 
@@ -687,7 +740,7 @@ export class App extends Component {
     }
 
     connect = async () => {
-
+        console.log("QUACK IN CONNECT..!");
         let resp;
         try {
             resp = await signInRoutes.connect();
@@ -695,6 +748,7 @@ export class App extends Component {
         catch (e) {
             console.log(e);
         }
+        console.log("QUACK RETURNED!");
         this.setState(prevState => ({
             invite_url: resp.data.invite_url,
             patient: { ...prevState.patient, testandtracekey: resp.data.key }
@@ -975,7 +1029,7 @@ export class App extends Component {
     }
 
     getNHSPatientDisabled() {
-        return (this.state.patient.patientid === '' || this.state.patient.patientname === '');
+        return (this.state.patient.credential_accepted === false || this.state.patient.patientid === '' || this.state.patient.patientname === '');
     }
 
     getVaccineDisabled() {
@@ -1238,10 +1292,17 @@ export class App extends Component {
         // }
 
         const getImage = () => {
+
             if (this.state.login) {
                 if (this.state.login_type === "nhs") {
+         
                     return `url(${"covid2.jpg"})`;
                 } else {
+
+                    let name = sessionStorage.getItem("name");
+                    if (name.indexOf("Library") != -1) {
+                        return `url(${"library.jpg"})`;       
+                    }
                     return `url(${"pub2.jpg"})`;
                 }
 
@@ -1293,7 +1354,7 @@ export class App extends Component {
                                 card={this.state.matcher}
                                 title={"Patient Matcher"}
                                 action={"matcher"}
-                                rows={this.state.matcher.rows}>
+                                rows={this.state.matcher.displayRows}>
                             </Form>
                         </TabPanel>
                         <TabPanel value={this.state.value} index={3}>

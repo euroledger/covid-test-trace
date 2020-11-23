@@ -143,6 +143,8 @@ app.post('/webhook', async function (req, res) {
                     centre: data["NHS Vaccine Centre"],
                     type: data["Vaccination Type"] + " Vaccine"
                 };
+                keydata.isValid = true;
+             
             } else if (template === "positive") {
                 const data = proof["proof"]["NHS Covid Test Certificate"]["attributes"];
 
@@ -175,9 +177,7 @@ app.post('/webhook', async function (req, res) {
 
                 if (issuedCredentialsForThisUser.length === 1) {
                     console.log(">>>>>>>>>> CREDENIAL = ", issuedCredentialsForThisUser[0])
-                    if (issuedCredentialsForThisUser[0].state === "Revoked") {
-                        keydata.isValid = false;   
-                    }
+                    keydata.isValid = issuedCredentialsForThisUser[0].state != "Revoked";
                 } else {
                     console.log(">>>>>>>>>> CREDENIAL NOT FOUND!");
                 }
@@ -540,6 +540,7 @@ app.post('/api/connect', cors(), async function (req, res) {
     console.log("Getting invite...")
     console.log("Invite params = ", req.body);
 
+    registered = false;
     const invite = await getInvite();
     const attribs = JSON.stringify(req.body);
     console.log("invite= ", invite);
@@ -604,6 +605,7 @@ app.post('/api/credential_accepted', cors(), async function (req, res) {
     console.log("Waiting for credential to be accepted...");
     await utils.until(_ => credentialAccepted === true);
     credentialAccepted = false;
+    console.log("IT'S BEEN ACCEPTED!");
     res.status(200).send();
 });
 

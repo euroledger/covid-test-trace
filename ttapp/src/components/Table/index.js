@@ -54,8 +54,8 @@ export default function CustomizedTables({ rows }) {
               <StyledTableCell align="left">{row.nhsappkey}</StyledTableCell>
               <StyledTableCell align="left">{row.restaurantname}</StyledTableCell>
               <StyledTableCell align="left">{row.visitdate}</StyledTableCell>
-              <StyledTableCell align="left">{row.visittimein}</StyledTableCell>
-              <StyledTableCell align="left">{row.visittimeout}</StyledTableCell>
+              <StyledTableCell align="left">{row.visittimein.substring(0,5)}</StyledTableCell>
+              <StyledTableCell align="left">{row.visittimeout.substring(0,5)}</StyledTableCell>
             </StyledTableRow>
           ))}
         </TableBody>

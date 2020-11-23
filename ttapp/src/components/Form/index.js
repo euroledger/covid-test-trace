@@ -65,7 +65,7 @@ const Form = ({ parent, items, loading, card, title, action, rows }) => {
         }
         else if (action === "matcher") {
             return (
-                <img style={{ marginLeft: '514px', height: '98px', width: '165px' }} src='trace.jpg' alt="" />
+                <img style={{ marginLeft: '438px', height: '98px', width: '165px' }} src='trace.jpg' alt="" />
             )
         }
         else if (action === "vaccine") {
