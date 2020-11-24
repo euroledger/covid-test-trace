@@ -171,15 +171,18 @@ app.post('/webhook', async function (req, res) {
                 //     return credential.connectionId === keydata.nhskey;
                 // });
 
+                console.log("******* CREDENTIALS = ", credentials);
+                console.log("looking for certificate id ", keydata.certificateId);
                 var issuedCredentialsForThisUser = credentials.filter(function (credential) {
                     return credential.values["Certificate ID"] === keydata.certificateId;
                 });
 
-                if (issuedCredentialsForThisUser.length === 1) {
-                    console.log(">>>>>>>>>> CREDENIAL = ", issuedCredentialsForThisUser[0])
-                    keydata.isValid = issuedCredentialsForThisUser[0].state != "Revoked";
+                if (issuedCredentialsForThisUser.length >= 1) {
+                    console.log(">>>>>>>>>> CREDENTIAL = ", issuedCredentialsForThisUser[0])
+                    keydata.isValid = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].state != "Revoked";
                 } else {
-                    console.log(">>>>>>>>>> CREDENIAL NOT FOUND!");
+                    keydata.isValid = keydata.certificateId != "";
+                    console.log(">>>>>>>>>> CREDENIAL NOT FOUND! issuedCredentialsForThisUser = ",issuedCredentialsForThisUser);
                 }
             } else {
                 const data = proof["proof"]["NHS Verification"]["attributes"];
