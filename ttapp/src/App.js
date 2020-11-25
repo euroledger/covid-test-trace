@@ -86,8 +86,8 @@ const initState = {
         credential_accepted: true
     },
     matcher: {
-        nhsappkey: NHS_KEY, // for testing
-        // nhsappkey: "",
+        // nhsappkey: NHS_KEY, // for testing
+        nhsappkey: "",
         patientname: "",
         ready_to_send_message: false,
         messages_sent: false,
@@ -200,6 +200,8 @@ export class App extends Component {
 
         let certificate_issued = resp.data.testData != undefined;
         let result = "";
+
+        console.log("resp.data = ", resp.data.testData);
         if (certificate_issued) {
             result = resp.data.testData["Test Result"].toUpperCase();
         }
@@ -1041,7 +1043,7 @@ export class App extends Component {
     }
 
     getResultDisabled() {
-        return this.state.result.testresult === '';
+        return !this.state.result.credential_accepted || this.state.result.testresult === '';
     }
     getVisitDisabled() {
         return this.state.key_received && this.state.visit.visittimeout === '';
@@ -1072,6 +1074,7 @@ export class App extends Component {
                     </Button>
                 </div>
             )
+
         } else if (!this.state.result.certificate_issued || this.state.result.revoked) {
             return (
                 <div style={{ marginTop: '15px', marginBottom: '20px' }}>
@@ -1162,6 +1165,8 @@ export class App extends Component {
             return "Scan this QR code to request verification of NHS Patient Data";
         } else if (this.state.result.requesting_patient_key) {
             return "Scan this QR code to request NHS Test & Trace key";
+        } else if (this.state.immunity.immunity_certificate_accepted === false) {
+            return "Scan this QR code to present your Immunity Certificate" 
         }
         else {
             return "Scan this QR code to Login to EuroLedger Test & Trace"

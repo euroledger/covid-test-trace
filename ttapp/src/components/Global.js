@@ -9,8 +9,9 @@ const GlobalCss = withStyles({
             color: 'black',
             fontWidth: 900
         },
-      
-        
+        '.MuiTab-root': {
+            maxWidth: '284px'
+        },  
         // 
         '.MuiTab-wrapper': {
             color: 'black'

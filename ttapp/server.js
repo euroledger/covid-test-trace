@@ -144,7 +144,7 @@ app.post('/webhook', async function (req, res) {
                     type: data["Vaccination Type"] + " Vaccine"
                 };
                 keydata.isValid = true;
-             
+
             } else if (template === "positive") {
                 const data = proof["proof"]["NHS Covid Test Certificate"]["attributes"];
 
@@ -177,12 +177,15 @@ app.post('/webhook', async function (req, res) {
                     return credential.values["Certificate ID"] === keydata.certificateId;
                 });
 
+                console.log("IMPORTANT ALL credentials = ", issuedCredentialsForThisUser);
+
                 if (issuedCredentialsForThisUser.length >= 1) {
                     console.log(">>>>>>>>>> CREDENTIAL = ", issuedCredentialsForThisUser[0])
                     keydata.isValid = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].state != "Revoked";
-                } else {
-                    keydata.isValid = keydata.certificateId != "";
-                    console.log(">>>>>>>>>> CREDENIAL NOT FOUND! issuedCredentialsForThisUser = ",issuedCredentialsForThisUser);
+                } 
+                else {
+                    keydata.isValid = false;
+                    console.log(">>>>>>>>>> CREDENIAL NOT FOUND! issuedCredentialsForThisUser = ", issuedCredentialsForThisUser);
                 }
             } else {
                 const data = proof["proof"]["NHS Verification"]["attributes"];
@@ -197,23 +200,33 @@ app.post('/webhook', async function (req, res) {
 
                 // pass back test information if present
 
-                console.log("---------------- GET ALL CREDENTIALS -------------------");
+                try {
+                    console.log("---------------- GET ALL CREDENTIALS -------------------");
 
-                // retreive all credentials for this id
-                let credentials = await client.listCredentials();
-                // var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
-                //     return credential.connectionId === keydata.nhskey;
-                // });
+                    // retreive all credentials for this id
+                    let credentials = await client.listCredentials();
+                    // var issuedCredentialsForThisConnection = credentials.filter(function (credential) {
+                    //     return credential.connectionId === keydata.nhskey;
+                    // });
 
-                var issuedCredentialsForThisUser = credentials.filter(function (credential) {
-                    return credential.state === "Issued" && credential.connectionId === keydata.nhskey && credential.values["Test Result"] != undefined;
-                });
-                if (issuedCredentialsForThisUser.length >= 1) {
-                    keydata.testData = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].values;
-                    credentialId = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].credentialId;
+                    console.log("QUACK 1");
+                    var issuedCredentialsForThisUser = credentials.filter(function (credential) {
+                        return credential.state === "Issued" && credential.values["Test Result"] != undefined && credential.connectionId == keydata.nhskey;
+                    });
+                    console.log("QUACK 2 issuedCredentialsForThisUser =", issuedCredentialsForThisUser);
+
+                    if (issuedCredentialsForThisUser.length >= 1) {
+                        console.log("QUACK 3");
+                        keydata.testData = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].values;
+                        credentialId = issuedCredentialsForThisUser[issuedCredentialsForThisUser.length - 1].credentialId;
+                        console.log("QUACK >>> credentials = ", issuedCredentialsForThisUser);
+                    }
+
+                    console.log("CREDENTIAL keydata = ", keydata);
                 }
-
-                console.log("CREDENTIAL keydata = ", keydata);
+                catch (e) {
+                    console.log(e.message || e.toString());
+                }
             }
             verificationAccepted = true;
             // res.status(200).send();
