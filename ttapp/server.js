@@ -171,7 +171,13 @@ app.post('/webhook', async function (req, res) {
                 //     return credential.connectionId === keydata.nhskey;
                 // });
 
-                console.log("******* CREDENTIALS = ", credentials);
+                // console.log("******* CREDENTIALS = ", credentials);
+
+                // for (const credential of credentials) {
+                //     console.log("DELETE credential id", credential.credentialId);
+                //     await client.deleteCredential(credential.credentialId);
+                // }
+               
                 console.log("looking for certificate id ", keydata.certificateId);
                 var issuedCredentialsForThisUser = credentials.filter(function (credential) {
                     return credential.values["Certificate ID"] === keydata.certificateId;
