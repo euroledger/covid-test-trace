@@ -41,6 +41,8 @@ const VACCINE_ID = "SARS-CoV-2-" + Math.floor(1000000 + Math.random() * 9000000)
 
 const JSON_SERVER_URL = 'http://localhost:3004';
 
+
+
 const muiTheme = createMuiTheme({
     typography: {
         "fontFamily": `"Lato","Arial","Helvetica","FreeSans","sans-serif"`,
@@ -767,48 +769,6 @@ export class App extends Component {
         this.setState({
             login_form_open: true, loggingIn: true, welcome_open: false
         });
-        // let resp;
-        // try {
-        //     resp = await signInRoutes.login();
-        // }
-        // catch (e) {
-        //     console.log(e);
-        // }
-
-        // console.log("LOGIN ok! resp = ", resp);
-
-        // this.setState({
-        //     login_loading: false,
-        // });
-
-        // this.setState({ invite_url: resp.data.login_request_url });
-
-        // this.setQRFormOpen(true);
-
-        // console.log("WAITING FOR LOGIN DATA...")
-
-        // const login = await signInRoutes.waitForLoginConfirmed();
-
-        // this.setQRFormOpen(false);
-
-        // if (login && login.status === 200) {
-        //     console.log("Connection  = ", login.data);
-        //     const name = login.data.connectionContract.name;
-
-        //     this.setState({
-        //         login: true, connection_name: name, loggingIn: false
-        //     });
-        //     sessionStorage.setItem("name", name);
-        //     sessionStorage.setItem("login", true);
-
-        //     // push the credentials back in to the forms for the correct platforms
-        //     this.loadrestaurantCredentials(login.data.credentials);
-        // } else {
-        //     console.log("no connection found");
-        //     this.setState({
-        //         collapse_open: true
-        //     });
-        // }
     }
 
     setLoginDetails = (type) => {
